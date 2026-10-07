@@ -1,0 +1,15 @@
+category,domain,max_ground_speed_mps,max_air_speed_mps,max_accel_mps2,max_turn_rate_dps,min_turn_radius_m,max_vrate_mps,kinematic_checks,source_or_assumption
+widebody,aircraft,15,320,4,6,35,25,true,taxi ~30 kt straight (airline SOP); turn radius per Airbus/Boeing airport planning docs (verify); cruise GS incl. jet stream
+narrowbody,aircraft,15,320,4,6,20,25,true,same sources as widebody
+regional,aircraft,15,300,4,6,15,25,true,assumption: between narrowbody and bizjet
+turboprop,aircraft,12,180,4,8,15,20,true,assumption
+bizjet,aircraft,15,320,5,8,12,30,true,assumption: climbs and turns faster than airliners
+light,aircraft,10,100,4,20,6,15,true,assumption: GA performance
+helicopter,aircraft,15,90,5,360,0,15,false,kinematic checks skipped: hover and sideways flight are normal
+other,aircraft,15,320,5,20,6,30,true,most permissive of all classes
+baggage_tractor,vehicle,7,,2,90,4,,true,assumption: capped ~25 km/h
+bus,vehicle,8.5,,1.5,45,12,,true,assumption: ~30 km/h airside
+fuel_truck,vehicle,7,,1.5,45,11,,true,assumption: ~25 km/h airside
+catering_truck,vehicle,7,,1.5,45,10,,true,assumption: ~25 km/h airside
+sar_vehicle,vehicle,25,,3,60,12,,true,assumption: rescue/fire vehicles may run fast on runways during emergencies
+follow_me,vehicle,14,,3,90,6,,true,assumption: ~50 km/h on taxiways
