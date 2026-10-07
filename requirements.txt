@@ -24,3 +24,4 @@ nbstripout
 kaggle
 gnss-lib-py
 pyopensky
+matplotlib
