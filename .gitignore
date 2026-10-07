@@ -1,0 +1,19 @@
+# data: raw and tiles stay local, processed goes to git
+data/raw/**
+!data/**/.gitkeep
+map/tiles/**
+!map/tiles/.gitkeep
+*.tif
+*.vrt
+*.zip
+*.tar
+*.tar.a?
+
+# secrets
+.env
+
+# python / notebooks
+.venv/
+__pycache__/
+*.egg-info/
+.ipynb_checkpoints/
