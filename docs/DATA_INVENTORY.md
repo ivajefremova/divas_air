@@ -1,6 +1,6 @@
 # Data Inventory
 
-Written by `/bootstrap` on 2026-10-10. Verified by inspection, not assumption.
+Written by `/bootstrap` on 2026-10-10; route graph added on a second pass the same day. Activate `.venv` first (`source .venv/bin/activate`): there is no system `python`, so `make` fails without it. Verified by inspection, not assumption.
 All paths are relative to the repo root.
 
 ---
@@ -120,7 +120,7 @@ All files in `map/layers/`, all EPSG:4326, all from OpenStreetMap for Rome Fiumi
 
 No explicit airport boundary polygon exists; module 2 should derive it from `config.AIRPORT_BOX = (41.77, 12.20, 41.86, 12.30)` or from the union of the runway and apron geometries.
 
-No route graph (nodes and edges) exists as a layer. The taxiway and service road geometries provide the network; module 2 must build the graph with NetworkX / momepy.
+The route graph is `map/fco_routes.graphml` (added after the first bootstrap pass; see below).
 
 Criticality values are not stored in the layer properties; they come from `params.CRITICALITY` and the zone type.
 
@@ -159,7 +159,7 @@ Criticality values are not stored in the layer properties; they come from `param
 
 - Geometry: LineString
 - Features: 1,081
-- Relevant properties: `highway = service`, `maxspeed` in `{20, 30, 40, 50}` (km/h — **must convert to m/s** for the unified schema: ÷ 3.6)
+- Relevant properties: `highway = service`, `maxspeed` (string, km/h — **must convert to m/s**: ÷ 3.6). Null on 1,042 of 1,081 features; set values: `30` ×33, `40` ×3, `50` ×2, `20` ×1
 - Zone type used in access table: `service_road`
 
 ### `map/layers/stands.geojson`
@@ -177,6 +177,16 @@ Criticality values are not stored in the layer properties; they come from `param
 - Relevant properties: `aeroway = taxiway`, `ref` (FCO taxiway designators A–AK+)
 - No `maxspeed` property is populated (all null)
 - Zone type used in access table: `taxiway`
+
+### `map/fco_routes.graphml`
+
+- Format: GraphML, read with `networkx.read_graphml` → undirected `MultiGraph`, 873 nodes, 1,248 edges, one connected component.
+- Built from OSM `taxiway_lines` + `service_roads`, merged, snapped at 3 m, noded (graph attribute `source`); primal approach.
+- Node attributes: `x_utm`, `y_utm` (EPSG:32633 = `config.CRS_METRIC`, meters; `x`, `y` are duplicates of them), `lon`, `lat` (EPSG:4326).
+- Edge attributes: `layer` in `{taxiway: 630, service_road: 618}`; `aeroway = taxiway` on taxiway edges, `highway = service` on service-road edges; `geometry` (WKT LineString in EPSG:32633); `length_m` (meters, median 56, max 1,381); `ref`; `maxspeed_kmh` (km/h, only `30.0` on 168 edges, null elsewhere); `access` (`private` ×489, `no` ×2); `oneway` (`yes` ×173, `no` ×40, rest null); `surface`, `name`, `tunnel`, `bridge`.
+- **Aircraft vs vehicle routes:** one merged graph. Split by edge `layer`: aircraft graph = `layer == "taxiway"` edges; vehicle graph = `layer == "service_road"` edges (vehicles crossing taxiways where the two layers share a node is allowed by the shared nodes). No runway edges are in the graph.
+- Edges are undirected even where `oneway = yes`; module 2 should ignore direction (simplest) or build a `DiGraph` from these flags.
+- The service roads with `maxspeed` 20, 40 or 50 in `service_roads.geojson` do not appear with those values in the graph (only 30 survives the merge); take zone speed limits from the layer, not from the graph.
 
 ---
 
@@ -221,7 +231,7 @@ The following items are needed by specs but were not found in `data/` or `map/la
 
 3. **Airport boundary polygon** — no dedicated layer. Use `config.AIRPORT_BOX` or derive from geometry unions.
 
-4. **Route graph (nodes/edges)** — no network file. Module 2 must build it from the taxiway and service road LineStrings using NetworkX / momepy.
+4. **Route graph** — resolved: `map/fco_routes.graphml` (section 3). It has no runway edges and no edge direction; speed limits in it are incomplete.
 
 5. **Zone criticality in layer properties** — not present. Criticality is assigned by type: runway = high (1.0), taxiway = medium (0.5), holding point = medium (0.5), apron = low (0.2), stand = low, service road = low, building = low. These defaults are from `params.CRITICALITY`; ADR has not confirmed them.
 
