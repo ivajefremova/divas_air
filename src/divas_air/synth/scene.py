@@ -296,7 +296,7 @@ def plan_event(
             k = int(rng.integers(len(mid)))
             r = rng.uniform(150, 400)
             inside = np.hypot(x - x[k], y - y[k]) < r
-            n = mid.loc[inside, "track_id"].nunique()
+            n = int((mid.loc[inside, "track_id"].value_counts() >= 3).sum())
             if n >= 3 and (best is None or n > best[0]):
                 best = (n, x[k], y[k], r)
         if best is None:

@@ -55,7 +55,10 @@ def _plan(points: pd.DataFrame, cause: str, rng, used: set) -> dict | None:
             )
             r = rng.uniform(*SECTOR_RADIUS_M)
             x, y = to_metric(mid["lon"], mid["lat"])
-            if mid.loc[np.hypot(x - cx[0], y - cy[0]) < r, "track_id"].nunique() >= 3:
+            n_in = mid.loc[
+                np.hypot(x - cx[0], y - cy[0]) < r, "track_id"
+            ].value_counts()
+            if (n_in >= 3).sum() >= 3:
                 ring = np.asarray(Point(cx[0], cy[0]).buffer(r, 32).exterior.coords)
                 lon, lat = to_wgs84(ring[:, 0], ring[:, 1])
                 region = shapely.Polygon(np.column_stack([lon, lat]))

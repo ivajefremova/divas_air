@@ -222,6 +222,8 @@ def _possible_interference(tr, m, onset, t_end, rng, p, severity=None):
         gap = rng.uniform(8, 25)
         start = rng.uniform(t[0], max(t[-1] - gap, t[0]))
         tr.drop[idx] |= (t >= start) & (t < start + gap)
+    if len(idx):
+        tr.drop[idx[0]] = False  # the track keeps at least one fix inside the event
     tr.label |= m
 
 
