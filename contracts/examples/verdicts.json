@@ -1,0 +1,360 @@
+{
+  "schema_version": "1.0",
+  "t": 1791900000.0,
+  "verdicts": [
+    {
+      "schema_version": "1.0",
+      "track_id": "fco:4ca7b5:0",
+      "asset_id": "4ca7b5",
+      "domain": "aircraft",
+      "asset_class": "narrowbody",
+      "callsign": "RYR4TK",
+      "t": 1791900000.0,
+      "window_s": 30,
+      "position": {
+        "lat": 41.801,
+        "lon": 12.246,
+        "alt_m": null,
+        "track_deg": 164.0,
+        "speed_mps": 7.2
+      },
+      "integrity": 96.0,
+      "integrity_raw": 97.1,
+      "normality": 100.0,
+      "dimensions": {
+        "kinetic": 100.0,
+        "temporal": 100.0,
+        "spatial": 100.0,
+        "contextual": 100.0
+      },
+      "trust_state": "trusted",
+      "normality_state": "expected",
+      "quadrant": "trusted",
+      "confidence": 0.93,
+      "confidence_level": "high",
+      "cause": "plausible",
+      "cause_probs": {
+        "plausible": 0.94,
+        "degraded": 0.01,
+        "technical_error": 0.01,
+        "gnss_anomaly": 0.01,
+        "possible_interference": 0.01,
+        "possible_spoofing": 0.01,
+        "behavioral_anomaly": 0.01
+      },
+      "severity": {
+        "level": "none",
+        "score": 0.02,
+        "zone_id": "twy_B",
+        "zone_name": "Taxiway B",
+        "zone_criticality": 0.5
+      },
+      "evidence": [],
+      "action": {
+        "code": "none",
+        "text": "No action."
+      },
+      "area_alert_id": null,
+      "early_warning": null
+    },
+    {
+      "schema_version": "1.0",
+      "track_id": "synthetic:veh_017:0",
+      "asset_id": "veh_017",
+      "domain": "vehicle",
+      "asset_class": "baggage_tractor",
+      "callsign": null,
+      "t": 1791900000.0,
+      "window_s": 30,
+      "position": {
+        "lat": 41.8246,
+        "lon": 12.2371,
+        "alt_m": null,
+        "track_deg": 71.0,
+        "speed_mps": 6.0
+      },
+      "integrity": 8.0,
+      "integrity_raw": 6.5,
+      "normality": 0.0,
+      "dimensions": {
+        "kinetic": 0.0,
+        "temporal": 62.0,
+        "spatial": 35.0,
+        "contextual": 0.0
+      },
+      "trust_state": "untrusted",
+      "normality_state": "abnormal",
+      "quadrant": "data_fault",
+      "confidence": 0.81,
+      "confidence_level": "high",
+      "cause": "technical_error",
+      "cause_probs": {
+        "plausible": 0.02,
+        "degraded": 0.02,
+        "technical_error": 0.78,
+        "gnss_anomaly": 0.12,
+        "possible_interference": 0.02,
+        "possible_spoofing": 0.02,
+        "behavioral_anomaly": 0.02
+      },
+      "severity": {
+        "level": "critical",
+        "score": 1.0,
+        "zone_id": "rwy_16R_34L",
+        "zone_name": "Runway 16R/34L",
+        "zone_criticality": 1.0
+      },
+      "evidence": [
+        {
+          "feature": "kin_speed_resid_max",
+          "dimension": "kinetic",
+          "text": "Position implies 41 m/s but the asset reports 6 m/s",
+          "value": 35.0,
+          "limit": 10.0,
+          "unit": "m/s"
+        },
+        {
+          "feature": "kin_accel_imp_ratio_max",
+          "dimension": "kinetic",
+          "text": "Position implies an acceleration 6.2x the maximum for a baggage_tractor",
+          "value": 6.2,
+          "limit": 1.5,
+          "unit": "ratio"
+        },
+        {
+          "feature": "ctx_type_violation_crit_max",
+          "dimension": "contextual",
+          "text": "A baggage_tractor is not authorized in Runway 16R/34L",
+          "value": 1.0,
+          "limit": 0.0,
+          "unit": "0-1"
+        }
+      ],
+      "action": {
+        "code": "verify_radio",
+        "text": "Verify the vehicle's position by radio before holding the runway."
+      },
+      "area_alert_id": null,
+      "early_warning": null
+    },
+    {
+      "schema_version": "1.0",
+      "track_id": "synthetic:veh_031:0",
+      "asset_id": "veh_031",
+      "domain": "vehicle",
+      "asset_class": "fuel_truck",
+      "callsign": null,
+      "t": 1791900000.0,
+      "window_s": 30,
+      "position": {
+        "lat": 41.8032,
+        "lon": 12.2515,
+        "alt_m": null,
+        "track_deg": 255.0,
+        "speed_mps": 6.4
+      },
+      "integrity": 95.0,
+      "integrity_raw": 95.8,
+      "normality": 0.0,
+      "dimensions": {
+        "kinetic": 100.0,
+        "temporal": 100.0,
+        "spatial": 41.0,
+        "contextual": 0.0
+      },
+      "trust_state": "trusted",
+      "normality_state": "abnormal",
+      "quadrant": "real_event",
+      "confidence": 0.9,
+      "confidence_level": "high",
+      "cause": "behavioral_anomaly",
+      "cause_probs": {
+        "plausible": 0.07,
+        "degraded": 0.01,
+        "technical_error": 0.01,
+        "gnss_anomaly": 0.01,
+        "possible_interference": 0.01,
+        "possible_spoofing": 0.01,
+        "behavioral_anomaly": 0.88
+      },
+      "severity": {
+        "level": "critical",
+        "score": 1.0,
+        "zone_id": "rwy_16L_34R",
+        "zone_name": "Runway 16L/34R",
+        "zone_criticality": 1.0
+      },
+      "evidence": [
+        {
+          "feature": "ctx_type_violation_crit_max",
+          "dimension": "contextual",
+          "text": "A fuel_truck is not authorized in Runway 16L/34R",
+          "value": 1.0,
+          "limit": 0.0,
+          "unit": "0-1"
+        },
+        {
+          "feature": "spa_route_dist_max_m",
+          "dimension": "spatial",
+          "text": "54 m from the nearest authorized route",
+          "value": 54.0,
+          "limit": 25.0,
+          "unit": "m"
+        }
+      ],
+      "action": {
+        "code": "act_now",
+        "text": "Act now: position data is sound and the vehicle is on the runway."
+      },
+      "area_alert_id": null,
+      "early_warning": null
+    },
+    {
+      "schema_version": "1.0",
+      "track_id": "synthetic:veh_044:0",
+      "asset_id": "veh_044",
+      "domain": "vehicle",
+      "asset_class": "bus",
+      "callsign": null,
+      "t": 1791900000.0,
+      "window_s": 30,
+      "position": {
+        "lat": 41.7958,
+        "lon": 12.2552,
+        "alt_m": null,
+        "track_deg": 12.0,
+        "speed_mps": 5.1
+      },
+      "integrity": 22.0,
+      "integrity_raw": 19.0,
+      "normality": 88.0,
+      "dimensions": {
+        "kinetic": 71.0,
+        "temporal": 55.0,
+        "spatial": 88.0,
+        "contextual": 100.0
+      },
+      "trust_state": "untrusted",
+      "normality_state": "expected",
+      "quadrant": "silent_risk",
+      "confidence": 0.58,
+      "confidence_level": "medium",
+      "cause": "possible_interference",
+      "cause_probs": {
+        "plausible": 0.0225,
+        "degraded": 0.2,
+        "technical_error": 0.0225,
+        "gnss_anomaly": 0.1,
+        "possible_interference": 0.61,
+        "possible_spoofing": 0.0225,
+        "behavioral_anomaly": 0.0225
+      },
+      "severity": {
+        "level": "medium",
+        "score": 0.39,
+        "zone_id": "apron_E",
+        "zone_name": "Apron E",
+        "zone_criticality": 0.5
+      },
+      "evidence": [
+        {
+          "feature": "flt_deg_rate_loo",
+          "dimension": "fleet",
+          "text": "80% of other assets in this area are degraded at the same time",
+          "value": 0.8,
+          "limit": null,
+          "unit": "ratio"
+        },
+        {
+          "feature": "tmp_gap_max_s",
+          "dimension": "temporal",
+          "text": "No position for 14 s",
+          "value": 14.0,
+          "limit": 10.0,
+          "unit": "s"
+        }
+      ],
+      "action": {
+        "code": "area_gnss_unreliable",
+        "text": "GNSS is unreliable on Apron E: confirm positions visually."
+      },
+      "area_alert_id": "area_0001",
+      "early_warning": null
+    },
+    {
+      "schema_version": "1.0",
+      "track_id": "fco:3c6589:0",
+      "asset_id": "3c6589",
+      "domain": "aircraft",
+      "asset_class": "narrowbody",
+      "callsign": "DLH5MM",
+      "t": 1791900000.0,
+      "window_s": 30,
+      "position": {
+        "lat": 41.905,
+        "lon": 12.204,
+        "alt_m": 640.0,
+        "track_deg": 163.0,
+        "speed_mps": 72.0
+      },
+      "integrity": 31.0,
+      "integrity_raw": 28.0,
+      "normality": 93.0,
+      "dimensions": {
+        "kinetic": 58.0,
+        "temporal": 100.0,
+        "spatial": 100.0,
+        "contextual": 93.0
+      },
+      "trust_state": "untrusted",
+      "normality_state": "expected",
+      "quadrant": "silent_risk",
+      "confidence": 0.52,
+      "confidence_level": "medium",
+      "cause": "possible_spoofing",
+      "cause_probs": {
+        "plausible": 0.03,
+        "degraded": 0.03,
+        "technical_error": 0.03,
+        "gnss_anomaly": 0.3,
+        "possible_interference": 0.03,
+        "possible_spoofing": 0.55,
+        "behavioral_anomaly": 0.03
+      },
+      "severity": {
+        "level": "critical",
+        "score": 0.69,
+        "zone_id": null,
+        "zone_name": "Final approach",
+        "zone_criticality": 1.0
+      },
+      "evidence": [
+        {
+          "feature": "sig_alt_div_dev_max_m",
+          "dimension": "signal",
+          "text": "GNSS altitude departs from barometric altitude by 85 m",
+          "value": 85.0,
+          "limit": null,
+          "unit": "m"
+        },
+        {
+          "feature": "kin_speed_resid_mean",
+          "dimension": "kinetic",
+          "text": "Implied and reported speed disagree by 9 m/s on average over 30 s",
+          "value": 9.0,
+          "limit": 5.0,
+          "unit": "m/s"
+        }
+      ],
+      "action": {
+        "code": "cross_check",
+        "text": "Cross-check this approach against radar: behavior looks normal, position data does not."
+      },
+      "area_alert_id": null,
+      "early_warning": {
+        "risk_zone_id": "static_T3",
+        "eta_s": 45.0
+      }
+    }
+  ]
+}

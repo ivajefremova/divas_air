@@ -1,0 +1,104 @@
+{
+  "$defs": {
+    "ReplayEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "title": "Event Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "phantom_incursion",
+            "real_incursion",
+            "sector_interference",
+            "red_team"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "t_start": {
+          "title": "T Start",
+          "type": "number"
+        },
+        "t_end": {
+          "title": "T End",
+          "type": "number"
+        },
+        "track_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Track Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "event_id",
+        "kind",
+        "title",
+        "t_start",
+        "t_end",
+        "track_ids"
+      ],
+      "title": "ReplayEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "data/processed/demo/replay/manifest.json",
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "airport": {
+      "title": "Airport",
+      "type": "string"
+    },
+    "t_start": {
+      "title": "T Start",
+      "type": "number"
+    },
+    "t_end": {
+      "title": "T End",
+      "type": "number"
+    },
+    "step_s": {
+      "title": "Step S",
+      "type": "integer"
+    },
+    "n_frames": {
+      "title": "N Frames",
+      "type": "integer"
+    },
+    "frames_file": {
+      "default": "frames.jsonl",
+      "title": "Frames File",
+      "type": "string"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/$defs/ReplayEvent"
+      },
+      "title": "Events",
+      "type": "array"
+    }
+  },
+  "required": [
+    "airport",
+    "t_start",
+    "t_end",
+    "step_s",
+    "n_frames",
+    "events"
+  ],
+  "title": "ReplayManifest",
+  "type": "object"
+}

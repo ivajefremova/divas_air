@@ -1,0 +1,221 @@
+{
+  "$defs": {
+    "TrackPointIn": {
+      "additionalProperties": false,
+      "description": "One position report sent to POST /tracks. SI units, WGS84.",
+      "properties": {
+        "asset_id": {
+          "description": "icao24 hex or vehicle id",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "t": {
+          "description": "position time, UNIX seconds UTC",
+          "title": "T",
+          "type": "number"
+        },
+        "lat": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Lat",
+          "type": "number"
+        },
+        "lon": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Lon",
+          "type": "number"
+        },
+        "domain": {
+          "enum": [
+            "aircraft",
+            "vehicle"
+          ],
+          "title": "Domain",
+          "type": "string"
+        },
+        "asset_class": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "envelope category; inferred from typecode if absent",
+          "title": "Asset Class"
+        },
+        "typecode": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Typecode"
+        },
+        "callsign": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Callsign"
+        },
+        "alt_baro_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alt Baro M"
+        },
+        "alt_geom_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alt Geom M"
+        },
+        "gs_mps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gs Mps"
+        },
+        "track_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Track Deg"
+        },
+        "heading_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Heading Deg"
+        },
+        "vrate_mps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vrate Mps"
+        },
+        "on_ground": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "On Ground"
+        },
+        "nacp": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nacp"
+        },
+        "nic": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nic"
+        },
+        "sil": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sil"
+        }
+      },
+      "required": [
+        "asset_id",
+        "t",
+        "lat",
+        "lon",
+        "domain"
+      ],
+      "title": "TrackPointIn",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "points": {
+      "items": {
+        "$ref": "#/$defs/TrackPointIn"
+      },
+      "title": "Points",
+      "type": "array"
+    }
+  },
+  "required": [
+    "points"
+  ],
+  "title": "TracksIn",
+  "type": "object"
+}

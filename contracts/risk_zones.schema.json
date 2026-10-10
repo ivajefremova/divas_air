@@ -1,0 +1,225 @@
+{
+  "$defs": {
+    "Action": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "none",
+            "monitor",
+            "verify_radio",
+            "verify_visual",
+            "cross_check",
+            "act_now",
+            "area_gnss_unreliable"
+          ],
+          "title": "Code",
+          "type": "string"
+        },
+        "text": {
+          "description": "action first, plain verbs, every number with a unit",
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "text"
+      ],
+      "title": "Action",
+      "type": "object"
+    },
+    "RiskZoneFeature": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "Feature",
+          "default": "Feature",
+          "title": "Type",
+          "type": "string"
+        },
+        "geometry": {
+          "additionalProperties": true,
+          "description": "GeoJSON geometry, WGS84 lon/lat. Polygon or MultiPolygon for static and live halos; LineString for a forecast (the extrapolated path of a track about to enter a halo)",
+          "title": "Geometry",
+          "type": "object"
+        },
+        "properties": {
+          "$ref": "#/$defs/RiskZoneProps"
+        }
+      },
+      "required": [
+        "geometry",
+        "properties"
+      ],
+      "title": "RiskZoneFeature",
+      "type": "object"
+    },
+    "RiskZoneProps": {
+      "additionalProperties": false,
+      "properties": {
+        "risk_zone_id": {
+          "title": "Risk Zone Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "static",
+            "live",
+            "forecast"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "level": {
+          "description": "0 = no risk, 1 = GNSS unusable",
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Level",
+          "type": "number"
+        },
+        "label": {
+          "description": "short operator-facing title",
+          "title": "Label",
+          "type": "string"
+        },
+        "expected_error_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "static halos",
+          "title": "Expected Error M"
+        },
+        "area_alert_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "live halos",
+          "title": "Area Alert Id"
+        },
+        "track_ids": {
+          "description": "live: tracks grouped under this area alert; forecast: the track being extrapolated",
+          "items": {
+            "type": "string"
+          },
+          "title": "Track Ids",
+          "type": "array"
+        },
+        "enters_risk_zone_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "forecast: the halo the path enters",
+          "title": "Enters Risk Zone Id"
+        },
+        "eta_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "forecast: seconds until the path enters it",
+          "title": "Eta S"
+        },
+        "action": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Action"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "t_start": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T Start"
+        },
+        "t_end": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "T End"
+        }
+      },
+      "required": [
+        "risk_zone_id",
+        "kind",
+        "level",
+        "label"
+      ],
+      "title": "RiskZoneProps",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Body of GET /risk-zones: a GeoJSON FeatureCollection.",
+  "properties": {
+    "type": {
+      "const": "FeatureCollection",
+      "default": "FeatureCollection",
+      "title": "Type",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "t": {
+      "title": "T",
+      "type": "number"
+    },
+    "features": {
+      "items": {
+        "$ref": "#/$defs/RiskZoneFeature"
+      },
+      "title": "Features",
+      "type": "array"
+    }
+  },
+  "required": [
+    "t",
+    "features"
+  ],
+  "title": "RiskZones",
+  "type": "object"
+}

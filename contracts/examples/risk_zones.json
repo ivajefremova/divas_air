@@ -1,0 +1,134 @@
+{
+  "type": "FeatureCollection",
+  "schema_version": "1.0",
+  "t": 1791900000.0,
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              12.248416,
+              41.798692
+            ],
+            [
+              12.250584,
+              41.798692
+            ],
+            [
+              12.250584,
+              41.800308
+            ],
+            [
+              12.248416,
+              41.800308
+            ],
+            [
+              12.248416,
+              41.798692
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "risk_zone_id": "static_T3",
+        "kind": "static",
+        "level": 0.45,
+        "label": "Signal shadow: Terminal 3",
+        "expected_error_m": 8.0,
+        "area_alert_id": null,
+        "track_ids": [],
+        "enters_risk_zone_id": null,
+        "eta_s": null,
+        "action": null,
+        "t_start": null,
+        "t_end": null
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              12.251586,
+              41.793105
+            ],
+            [
+              12.258814,
+              41.793105
+            ],
+            [
+              12.258814,
+              41.798495
+            ],
+            [
+              12.251586,
+              41.798495
+            ],
+            [
+              12.251586,
+              41.793105
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "risk_zone_id": "live_area_0001",
+        "kind": "live",
+        "level": 0.85,
+        "label": "Possible interference: Apron E",
+        "expected_error_m": null,
+        "area_alert_id": "area_0001",
+        "track_ids": [
+          "synthetic:veh_044:0",
+          "synthetic:veh_045:0",
+          "synthetic:veh_052:0"
+        ],
+        "enters_risk_zone_id": null,
+        "eta_s": null,
+        "action": {
+          "code": "area_gnss_unreliable",
+          "text": "GNSS is unreliable on Apron E: confirm positions visually."
+        },
+        "t_start": 1791899950.0,
+        "t_end": 1791900010.0
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            12.2601,
+            41.7949
+          ],
+          [
+            12.2575,
+            41.7955
+          ]
+        ]
+      },
+      "properties": {
+        "risk_zone_id": "forecast_veh_061",
+        "kind": "forecast",
+        "level": 0.85,
+        "label": "veh_061 enters the interference area in 25 s",
+        "expected_error_m": null,
+        "area_alert_id": null,
+        "track_ids": [
+          "synthetic:veh_061:0"
+        ],
+        "enters_risk_zone_id": "live_area_0001",
+        "eta_s": 25.0,
+        "action": null,
+        "t_start": 1791900000.0,
+        "t_end": 1791900025.0
+      }
+    }
+  ]
+}

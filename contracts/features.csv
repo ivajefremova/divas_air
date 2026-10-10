@@ -1,0 +1,54 @@
+name,group,dimension,unit,monotone,priority,tau_source,tau,scale,applies_to,description,template
+kin_speed_resid_max,kinetic,kinetic,m/s,1,P0,calibrated,10,20,all,max |implied - reported speed| over pairs >= RATE_BASE_S apart,Position implies {aux_speed_implied_mps:.0f} m/s but the asset reports {aux_speed_reported_mps:.0f} m/s
+kin_speed_resid_rel_max,kinetic,kinetic,ratio,1,P0,calibrated,0.3,0.7,all,"max |implied - reported speed| / max(reported speed, COURSE_MIN_MPS)",Implied speed differs from reported speed by {v:.0%}
+kin_speed_resid_mean,kinetic,kinetic,m/s,1,P0,calibrated,5,10,all,"mean |implied - reported speed|: sustained mismatch, the smooth-drift signature",Implied and reported speed disagree by {v:.0f} m/s on average over 30 s
+kin_speed_ratio_max,kinetic,kinetic,ratio,1,P0,envelope,1.5,1.5,all,"max(implied, reported speed) / class max speed (ground limit on ground, air limit airborne)",Speed is {v:.1f}x the maximum for a {aux_asset_class} ({aux_class_max_speed_mps:.0f} m/s)
+kin_accel_ratio_max,kinetic,kinetic,ratio,1,P0,envelope,1.5,1.5,all,max |change in reported speed| / dt / class max acceleration,Acceleration is {v:.1f}x the maximum for a {aux_asset_class}
+kin_accel_imp_ratio_max,kinetic,kinetic,ratio,1,P1,envelope,1.5,1.5,all,max |change in implied speed| / dt / class max acceleration,Position implies an acceleration {v:.1f}x the maximum for a {aux_asset_class}
+kin_turn_rate_ratio_max,kinetic,kinetic,ratio,1,P0,envelope,1.5,1.5,all,max |change in reported course| / dt / class max turn rate; moving only,Turn rate is {v:.1f}x the maximum for a {aux_asset_class}
+kin_turn_rate_imp_ratio_max,kinetic,kinetic,ratio,1,P1,envelope,1.5,1.5,all,max |change in implied course| / dt / class max turn rate; displacement >= COURSE_MIN_DISP_M,Position implies a turn rate {v:.1f}x the maximum for a {aux_asset_class}
+kin_turn_radius_ratio_max,kinetic,kinetic,ratio,1,P1,envelope,1.5,1.5,all,class min turn radius / observed radius (speed / turn rate); moving and turning only,Turn is {v:.1f}x tighter than a {aux_asset_class} can make
+kin_vrate_ratio_max,kinetic,kinetic,ratio,1,P1,envelope,1.5,1.5,aircraft,max |reported vertical rate| / class max vertical rate,Vertical rate is {v:.1f}x the maximum for a {aux_asset_class}
+kin_vrate_imp_ratio_max,kinetic,kinetic,ratio,1,P1,envelope,1.5,1.5,aircraft,max |change in altitude| / dt / class max vertical rate,Altitude changes {v:.1f}x faster than a {aux_asset_class} can climb or descend
+kin_course_resid_max,kinetic,kinetic,deg,1,P0,calibrated,30,60,all,max |implied course - reported course|; displacement >= COURSE_MIN_DISP_M,Direction of travel differs from reported course by {v:.0f} deg
+kin_course_resid_mean,kinetic,kinetic,deg,1,P2,calibrated,15,30,all,mean |implied course - reported course|,Direction of travel and reported course disagree by {v:.0f} deg on average
+kin_heading_course_diff_max,kinetic,kinetic,deg,1,P1,calibrated,30,60,all,max |heading - course over ground|; moving only,Heading and course differ by {v:.0f} deg
+kin_pos_jitter_m,kinetic,kinetic,m,1,P0,calibrated,15,30,all,RMS residual of positions around a quadratic-in-time fit over the window,Position scatters {v:.0f} m around a smooth path
+tmp_n_points,temporal,temporal,count,0,P0,none,,,all,fixes in the window,
+tmp_gap_max_s,temporal,temporal,s,1,P0,calibrated,10,20,all,"longest silence touching the window, including lead-in and time since the last fix",No position for {v:.0f} s
+tmp_staleness_s,temporal,temporal,s,1,P0,calibrated,10,20,all,t_end minus the time of the last fix,Last position is {v:.0f} s old
+tmp_dt_dev_ratio,temporal,temporal,ratio,1,P0,calibrated,1.0,2.0,all,|median dt in window - trailing baseline median dt| / baseline,Update interval changed by {v:.0%} from this track's usual rate
+tmp_dup_count,temporal,temporal,count,1,P0,fixed,0,3,all,fixes repeating an earlier timestamp,{v:.0f} repeated timestamps in 30 s
+tmp_nonmono_count,temporal,temporal,count,1,P0,fixed,0,2,all,fixes whose time is earlier than the previous fix in arrival (seq) order,{v:.0f} positions arrived out of order in 30 s
+tmp_frozen_run_s,temporal,temporal,s,1,P0,calibrated,5,10,all,longest run of identical positions while reported speed > MOVING_MPS,Position frozen for {v:.0f} s while the asset reports movement
+tmp_frozen_frac,temporal,temporal,ratio,1,P0,fixed,0.3,0.5,all,share of fixes inside frozen runs,{v:.0%} of positions are frozen while the asset reports movement
+sig_nacp_median,signal,signal,category,0,P0,none,,,all,median NACp in the window,Reported position accuracy category is {v:.0f} (NACp)
+sig_nacp_min,signal,signal,category,0,P0,none,,,all,min NACp in the window,Reported position accuracy category fell to {v:.0f} (NACp)
+sig_nacp_drop,signal,signal,category,0,P0,none,,,all,"trailing baseline median NACp minus window median, clipped at 0",Reported position accuracy dropped by {v:.0f} categories (NACp)
+sig_nic_median,signal,signal,category,0,P0,none,,,all,median NIC in the window,Reported integrity category is {v:.0f} (NIC)
+sig_nic_drop,signal,signal,category,0,P0,none,,,all,"trailing baseline median NIC minus window median, clipped at 0",Reported integrity dropped by {v:.0f} categories (NIC)
+sig_sil_min,signal,signal,category,0,P1,none,,,all,min SIL in the window,Source integrity level fell to {v:.0f} (SIL)
+sig_degraded_frac,signal,signal,ratio,0,P0,none,,,all,share of fixes where is_degraded_reading() is true,{v:.0%} of positions in 30 s report degraded accuracy
+sig_degraded_majority,signal,signal,flag,0,P0,none,,,all,1 if sig_degraded_frac > 0.5 (majority rule),Most positions in 30 s report degraded accuracy
+sig_alt_div_dev_max_m,signal,signal,m,0,P1,none,,,aircraft,max |(GNSS alt - baro alt) - trailing baseline median of that difference|,GNSS altitude departs from barometric altitude by {v:.0f} m
+sig_alt_div_rate_max,signal,signal,m/s,0,P1,none,,,aircraft,max |change in (GNSS alt - baro alt)| / dt over >= RATE_BASE_S,GNSS altitude drifts from barometric altitude at {v:.1f} m/s
+spa_route_dist_max_m,spatial,spatial,m,0,P0,calibrated,25,50,ground,max distance to the nearest authorized route for the asset domain,{v:.0f} m from the nearest authorized route
+spa_route_dist_mean_m,spatial,spatial,m,0,P1,calibrated,15,30,ground,mean distance to the nearest authorized route,{v:.0f} m from the nearest authorized route on average
+spa_offzone_frac,spatial,spatial,ratio,0,P1,fixed,0.2,0.6,ground,share of ground fixes inside the airport boundary but in no zone polygon,{v:.0%} of positions are off every movement area
+spa_in_building_frac,spatial,spatial,ratio,0,P0,fixed,0.2,0.6,ground,share of fixes inside a building footprint,{v:.0%} of positions fall inside a building
+spa_off_airport,spatial,spatial,flag,0,P1,fixed,0,1,ground,1 if most ground fixes are outside the airport boundary,Ground asset reported outside the airport boundary
+spa_zone_crit_max,spatial,spatial,0-1,0,P0,none,,,all,max criticality of zones occupied or within ZONE_BUFFER_M; airborne: approach rule. Drives severity,
+ctx_zone_speed_ratio_max,contextual,contextual,ratio,0,P0,fixed,1.2,0.8,ground,max reported speed / zone speed limit,Speed is {v:.1f}x the {aux_zone_speed_limit_mps:.0f} m/s limit in {aux_zone_name}
+ctx_type_violation_crit_max,contextual,contextual,0-1,0,P0,fixed,0,1,ground,max criticality of occupied zones where the asset class is not allowed (zone_access.csv); 0 if none,A {aux_asset_class} is not authorized in {aux_zone_name}
+ctx_dwell_ratio,contextual,contextual,ratio,0,P1,fixed,1.0,1.0,ground,"stationary time in the current zone / allowed dwell for (zone type, class)",Stationary {v:.1f}x longer than allowed in {aux_zone_name}
+ctx_ground_alt_conflict,contextual,contextual,ratio,0,P1,fixed,0.2,0.6,aircraft,share of fixes where the on-ground flag contradicts height or speed,On-ground flag contradicts altitude or speed in {v:.0%} of positions
+ctx_phase_conflict_frac,contextual,contextual,ratio,0,P2,fixed,0.2,0.6,airborne,share of airborne fixes low (< 150 m above aerodrome) and > 500 m from any runway axis; helicopters skipped,Flying low away from any runway in {v:.0%} of positions
+ctx_app_lateral_dev_deg,contextual,contextual,deg,0,P1,calibrated,2.5,5,approach,max angular offset from the extended runway centerline inside APPROACH_FINAL_KM,{v:.1f} deg off the runway centerline on final approach
+ctx_app_glide_dev_deg,contextual,contextual,deg,0,P2,calibrated,1.0,2.0,approach,max |glide angle to threshold - GLIDESLOPE_DEG| inside APPROACH_FINAL_KM,{v:.1f} deg off the 3 deg glide path
+ctx_app_descent_dev_ratio,contextual,contextual,ratio,0,P1,calibrated,0.6,1.0,approach,mean |vertical rate - 3 deg descent rate| / 3 deg descent rate inside APPROACH_FINAL_KM,Descent rate differs from a 3 deg approach by {v:.0%}
+ctx_identity_mismatch,contextual,contextual,count,0,P2,fixed,0,2,aircraft,identity rules fired on the RAW declared type: airline callsign on a light type; speed above the declared class,Declared aircraft type does not match callsign or performance
+flt_n_others,fleet,fleet,count,0,P0,none,,,all,"other tracks in the cell and its k-ring, same time bin",
+flt_deg_rate_loo,fleet,fleet,ratio,1,P0,none,,,all,degraded share among the OTHER tracks (leave-one-out),{v:.0%} of other assets in this area are degraded at the same time
+flt_deg_count_loo,fleet,fleet,count,1,P0,none,,,all,number of OTHER degraded tracks,{v:.0f} other assets in this area are degraded at the same time
+flt_cell_flagged_loo,fleet,fleet,flag,1,P0,none,,,all,1 if the cell would be flagged without this track,Other assets in this area show degraded positions at the same time
+flt_nbr_flagged_frac,fleet,fleet,ratio,1,P0,none,,,all,"share of ring-1 neighbor cells flagged, computed without this track",{v:.0%} of neighboring areas show degraded positions

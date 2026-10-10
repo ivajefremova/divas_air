@@ -12,6 +12,12 @@ map/tiles/**
 # secrets
 .env
 
+#claude
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.mcp.json
+
 # python / notebooks
 .venv/
 __pycache__/

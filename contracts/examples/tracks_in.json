@@ -1,0 +1,44 @@
+{
+  "points": [
+    {
+      "asset_id": "veh_017",
+      "t": 1791900000.0,
+      "lat": 41.8246,
+      "lon": 12.2371,
+      "domain": "vehicle",
+      "asset_class": "baggage_tractor",
+      "typecode": null,
+      "callsign": null,
+      "alt_baro_m": null,
+      "alt_geom_m": null,
+      "gs_mps": 6.0,
+      "track_deg": 71.0,
+      "heading_deg": null,
+      "vrate_mps": null,
+      "on_ground": null,
+      "nacp": 10.0,
+      "nic": 8.0,
+      "sil": 3.0
+    },
+    {
+      "asset_id": "4ca7b5",
+      "t": 1791900000.0,
+      "lat": 41.801,
+      "lon": 12.246,
+      "domain": "aircraft",
+      "asset_class": null,
+      "typecode": "B738",
+      "callsign": "RYR4TK",
+      "alt_baro_m": null,
+      "alt_geom_m": null,
+      "gs_mps": 7.2,
+      "track_deg": 164.0,
+      "heading_deg": null,
+      "vrate_mps": null,
+      "on_ground": true,
+      "nacp": 10.0,
+      "nic": 8.0,
+      "sil": 3.0
+    }
+  ]
+}
