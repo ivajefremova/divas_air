@@ -177,3 +177,21 @@ def test_thresholds_floor_at_the_registry_default():
     assert th["tau"].notna().all()
     scored = {s.name for s in registry.REGISTRY.values() if s.scored}
     assert set(th.index.get_level_values("name")) == scored
+
+
+def test_tracks_that_never_report_good_accuracy_are_not_counted_as_degraded():
+    """GPSJam eligibility: a track counts once it has reported NACp >= 8 (causal)."""
+    pts = make_track(
+        domain="aircraft",
+        asset_class="narrowbody",
+        track_id="test:4ca006:0",
+        speed_mps=80.0,
+        alt_m=500.0,
+    )
+    never = cf(pts.assign(nacp=5.0))
+    assert never["sig_degraded_frac"].isna().all()
+    late = pts.copy()
+    late.loc[late["t"] < T0 + 60, "nacp"] = 5.0  # good accuracy only from T0+60
+    f = cf(late).set_index("t_end")
+    assert np.isnan(f.loc[T0 + 50, "sig_degraded_frac"])
+    assert f.loc[T0 + 90, "sig_degraded_frac"] == 0.0

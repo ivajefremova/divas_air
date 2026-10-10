@@ -119,3 +119,57 @@ def test_map_features_are_causal(layers):
         left[cols].to_numpy(float), right[cols].to_numpy(float), equal_nan=True
     )
     assert params.DWELL_MOVE_M > 0
+
+
+def test_ground_fixes_away_from_lirf_get_no_map_features(layers):
+    """Ciampino lies inside the approach box but has no layers."""
+    pts = make_track(asset_class="bus", lat0=41.80, lon0=12.59)
+    f = compute_features(pts, layers)
+    assert (
+        f[["spa_off_airport", "spa_route_dist_max_m", "spa_zone_crit_max"]]
+        .isna()
+        .all()
+        .all()
+    )
+
+
+def _final(layers, end: str, dist_m: float, height_m: float, n: int = 40):
+    from divas_air.features.core import GEOD
+
+    rw = layers.runways.set_index("end").loc[end]
+    lon, lat, _ = GEOD.fwd(
+        rw["threshold_lon"], rw["threshold_lat"], rw["bearing_deg"] + 180.0, dist_m
+    )
+    return make_track(
+        domain="aircraft",
+        asset_class="narrowbody",
+        track_id="test:4ca012:0",
+        speed_mps=70.0,
+        course_deg=float(rw["bearing_deg"]),
+        lat0=lat,
+        lon0=lon,
+        alt_m=height_m,
+        n=n,
+    )
+
+
+def test_final_approach_picks_the_runway_on_the_centerline(layers):
+    f = compute_features(_final(layers, "16R", 8000.0, 420.0), layers)
+    assert (f["aux_zone_id"] == "approach_16R").all()
+    assert f["ctx_app_lateral_dev_deg"].max() < 0.5
+    assert (f["spa_zone_crit_max"] == params.CRITICALITY_AIRBORNE_FINAL).all()
+
+
+def test_overflight_is_not_on_final(layers):
+    f = compute_features(_final(layers, "16R", 8000.0, 10000.0), layers)
+    assert f["ctx_app_lateral_dev_deg"].isna().all()
+    assert (f["spa_zone_crit_max"] == params.CRITICALITY_AIRBORNE_OTHER).all()
+
+
+def test_airline_callsign_on_an_unknown_light_type(layers):
+    pts = _final(layers, "16R", 8000.0, 420.0)
+    pts["typecode_raw"] = pts["typecode_raw"].astype("string")
+    pts.loc[:, "typecode_raw"] = "EFOX"  # maps to `other`
+    pts.loc[pts.index[0], "callsign"] = "AZA123"  # sent once, carried forward
+    f = compute_features(pts, layers)
+    assert (f["ctx_identity_mismatch"] >= 1).all()

@@ -14,13 +14,10 @@ import pandas as pd
 from pyproj import Geod
 
 from divas_air import config, params, registry
-from divas_air.degradation import is_degraded_reading
+from divas_air.degradation import is_degraded_reading, is_eligible_reading
 from divas_air.features.windows import Grid, Slices
 
 GEOD = Geod(ellps="WGS84")
-MIN_JITTER_POINTS = 5
-MIN_HISTORY_S = 30.0  # baselines are NaN until the track has this much history
-TURN_MIN_DPS = 1.0  # turn radius only where the turn rate exceeds this
 
 
 @lru_cache(maxsize=1)
@@ -140,7 +137,7 @@ def fix_level(
         f["turn_ratio"] = np.where(air_turn, turn, np.nan) / turnmax
         omega = np.radians(turn)
         f["radius_ratio"] = np.where(
-            turn > TURN_MIN_DPS, radmin * omega / v_rep, np.nan
+            turn > params.TURN_MIN_DPS, radmin * omega / v_rep, np.nan
         )
 
         # vertical
@@ -174,12 +171,10 @@ def fix_level(
     for k in ENVELOPE_FIX:
         f[k] = np.where(pos_only, np.nan, f[k])
 
-    f["degraded"] = (
-        is_degraded_reading(pd.DataFrame({"nacp": a["nacp"]}))
-        .to_numpy()
-        .astype("float64")
-    )
-    f["degraded"][np.isnan(a["nacp"])] = np.nan
+    # degraded share over readings that report NACp, once the track is eligible (GPSJam rule)
+    nf = pd.DataFrame({"nacp": a["nacp"], "track_id": a["code"]})
+    f["degraded"] = is_degraded_reading(nf).to_numpy().astype("float64")
+    f["degraded"][np.isnan(a["nacp"]) | ~is_eligible_reading(nf).to_numpy()] = np.nan
     return f
 
 
@@ -231,7 +226,7 @@ def jitter(a: dict[str, np.ndarray], w: Slices) -> np.ndarray:
         ],
         -2,
     )
-    ok = (cnt >= MIN_JITTER_POINTS) & (
+    ok = (cnt >= params.MIN_JITTER_POINTS) & (
         np.abs(np.linalg.det(mat)) > 1e-12 * np.maximum(sk[0], 1.0) ** 3
     )
     mat[~ok] = np.eye(3)
@@ -281,13 +276,15 @@ def window_level(a, f, g: Grid, w: Slices, b: Slices) -> dict[str, np.ndarray]:
     o["tmp_n_points"] = n_pts
     o["tmp_gap_max_s"] = np.fmax(w.max(f["dt_prev"]), stale)
     o["tmp_staleness_s"] = stale
-    # baselines need fixes at least MIN_HISTORY_S before the window start
+    # baselines need fixes at least params.MIN_HISTORY_S before the window start
     t_first_base = a["t"][np.minimum(g.blo, len(a["t"]) - 1)]
     history_ok = (g.lo > g.blo) & (
-        g.t_end - config.WINDOW_S - t_first_base >= MIN_HISTORY_S
+        g.t_end - config.WINDOW_S - t_first_base >= params.MIN_HISTORY_S
     )
     dt_w = w.median(f["dt_prev"])
-    dt_b = np.where(history_ok, b.median(f["dt_prev"]), np.nan)
+    # the first baseline fix's interval reaches back beyond BUFFER_S: leave it out
+    b_dt = Slices(np.minimum(g.blo + 1, g.lo), g.lo)
+    dt_b = np.where(history_ok, b_dt.median(f["dt_prev"]), np.nan)
     with np.errstate(invalid="ignore", divide="ignore"):
         o["tmp_dt_dev_ratio"] = np.where(dt_b > 0, np.abs(dt_w - dt_b) / dt_b, np.nan)
     o["tmp_dup_count"] = w.sum(f["dup"])

@@ -18,7 +18,6 @@ from divas_air import config, params, registry
 
 THRESHOLDS_PATH = config.REFERENCE / "dimension_thresholds.csv"
 SPLITS_PATH = config.ROOT / "artifacts" / "models" / "splits.json"
-QUANTILE = 0.999
 DOMAINS = ("aircraft", "vehicle")
 
 
@@ -58,8 +57,13 @@ def clean_windows() -> dict[str, tuple[pd.DataFrame, str]]:
             & (f["aux_domain"] == "aircraft").to_numpy()
         )
         keep &= f["tmp_n_points"].to_numpy() >= params.MIN_POINTS
+        # windows without any NACp are MLAT/TIS-B positions, not GNSS: not fitted on
+        keep &= f["sig_nacp_median"].notna().to_numpy()
         days = pd.to_datetime(f.loc[keep, "t_end"], unit="s").dt.date
-        out["aircraft"] = (f[keep], f"fco non-held-out {days.min()}..{days.max()}")
+        out["aircraft"] = (
+            f[keep],
+            f"fco non-held-out {days.min()}..{days.max()}, with NACp",
+        )
     syn = features_path("synthetic")
     if syn.exists():
         f = pd.read_parquet(
@@ -91,12 +95,17 @@ def fit_thresholds(
         for domain in DOMAINS:
             tau, n, fitted_on = float(s.tau), 0, f"registry ({s.tau_source})"
             if s.tau_source == "calibrated":
-                fitted_on = "registry default (no clean windows)"
+                fitted_on = (
+                    f"registry default (< {params.THRESHOLD_MIN_N} clean windows)"
+                )
                 if domain in clean:
                     df, where = clean[domain]
                     v = df[s.name].dropna().to_numpy(dtype="float64")
-                    if len(v):
-                        tau = max(float(s.tau), float(np.quantile(v, QUANTILE)))
+                    if len(v) >= params.THRESHOLD_MIN_N:
+                        tau = max(
+                            float(s.tau),
+                            float(np.quantile(v, params.THRESHOLD_QUANTILE)),
+                        )
                         n, fitted_on = len(v), where
             rows.append((s.name, domain, tau, float(s.scale), n, fitted_on))
     return pd.DataFrame(

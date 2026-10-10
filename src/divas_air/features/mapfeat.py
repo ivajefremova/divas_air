@@ -2,9 +2,10 @@
 
 Ground fixes (vehicles, aircraft with on_ground) are placed on the LIRF zones,
 routes and buildings; airborne fixes are matched against the runway ends for
-the approach and phase features. Only fixes inside `config.APPROACH_BOX`, the
-area the layers describe, get map features: elsewhere (Baltic, control) they
-are NaN, not "off every zone".
+the approach and phase features. The layers describe LIRF only: ground fixes
+get map features inside `config.AIRPORT_BOX`, airborne fixes inside
+`config.APPROACH_BOX`. Elsewhere (Ciampino, Baltic, control) they are NaN,
+not "off every zone".
 """
 
 from __future__ import annotations
@@ -20,15 +21,6 @@ from divas_air import config, params
 from divas_air.features.core import GEOD, wrap180
 from divas_air.features.windows import Grid, Slices
 
-APPROACH_ALIGN_DEG = 30.0  # reported course within this of the runway bearing
-PHASE_LOW_M = 150.0  # "low" for the phase check, above aerodrome elevation
-PHASE_AXIS_M = 500.0  # farther than this from every runway axis is "away"
-GROUND_ALT_CONFLICT_M = (
-    300.0  # on_ground with baro altitude this far above the aerodrome
-)
-AIRBORNE_MIN_MPS = (
-    10.0  # airborne (not helicopter) slower than this contradicts the flag
-)
 AIRLINE_CALLSIGN = re.compile(r"^[A-Z]{3}[0-9]")
 
 
@@ -47,8 +39,8 @@ def _trees(layers):
     )
 
 
-def _in_box(lat: np.ndarray, lon: np.ndarray) -> np.ndarray:
-    lat0, lon0, lat1, lon1 = config.APPROACH_BOX
+def _in_box(lat: np.ndarray, lon: np.ndarray, box=config.APPROACH_BOX) -> np.ndarray:
+    lat0, lon0, lat1, lon1 = box
     return (lat >= lat0) & (lat <= lat1) & (lon >= lon0) & (lon <= lon1)
 
 
@@ -108,6 +100,7 @@ def _ground(
     pi, zi = ztree.query(pts, predicate="dwithin", distance=params.ZONE_BUFFER_M)
     dist = shapely.distance(pts[pi], zones.geometry.to_numpy()[zi])
     occ = dist == 0
+    near = dist <= params.ZONE_OCCUPANCY_MARGIN_M  # in the zone up to GNSS noise
     crit = zones["criticality"].to_numpy(dtype="float64")[zi]
     ztype = zones["zone_type"].to_numpy(dtype=object)[zi]
     limit = zones["speed_limit_mps"].to_numpy(dtype="float64")[zi]
@@ -121,7 +114,7 @@ def _ground(
     out["zone"][pi[first]] = zi[first]
 
     lim = np.full(n, np.nan)
-    sel = occ & ~np.isnan(limit)
+    sel = near & ~np.isnan(limit)
     np.fmin.at(lim, pi[sel], limit[sel])
     lim_zone = np.full(n, -1, np.int64)
     hit = sel & (limit == lim[pi])
@@ -138,12 +131,12 @@ def _ground(
     allowed = acc["allowed"].fillna(True).to_numpy(dtype=bool)
     max_dwell = acc["max_dwell_s"].to_numpy(dtype="float64")
     any_allowed = np.zeros(n, dtype=bool)
-    any_allowed[pi[occ & allowed]] = True
+    any_allowed[pi[near & allowed]] = True
     # crossing another zone type from a place the asset may be is fine, except a runway
     viol = occ & ~allowed & ((ztype == "runway") | ~any_allowed[pi])
     out["violation"] = np.zeros(n)
     np.maximum.at(out["violation"], pi[viol], crit[viol])
-    out["offzone"] = ((out["outside"] == 0) & ~np.isin(np.arange(n), pi[occ])).astype(
+    out["offzone"] = ((out["outside"] == 0) & ~np.isin(np.arange(n), pi[near])).astype(
         "float64"
     )
 
@@ -188,32 +181,49 @@ def _airborne(
     trk = a["trk"][idx]
     alt = np.where(np.isnan(a["alt_geom"][idx]), a["alt_baro"][idx], a["alt_geom"][idx])
     best_lat = np.full(n, np.inf)
+    best_d = np.full(n, np.inf)
     out = {k: np.full(n, np.nan) for k in ("lateral", "glide", "descent")}
     out["end"] = np.full(n, -1, np.int64)
     tan_gs = np.tan(np.radians(params.GLIDESLOPE_DEG))
+    tan_cone = np.tan(np.radians(params.APPROACH_CONE_DEG))
+    # the runway is the aligned end with the nearest extended centerline; the distance
+    # and height gates apply to that end only
     for e, r in enumerate(rw.itertuples(index=False)):
         az, _, d = GEOD.inv(
             lon, lat, np.full(n, r.threshold_lon), np.full(n, r.threshold_lat)
         )
         ang = np.abs(wrap180(np.asarray(az) - r.bearing_deg))
         aligned = (
-            (d <= params.APPROACH_FINAL_KM * 1000.0)
-            & (np.abs(wrap180(trk - r.bearing_deg)) <= APPROACH_ALIGN_DEG)
-            & (ang < 90.0)
-        )
+            np.abs(wrap180(trk - r.bearing_deg)) <= params.APPROACH_ALIGN_DEG
+        ) & (ang < 90.0)
         lat_m = d * np.sin(np.radians(ang))
         take = aligned & (lat_m < best_lat)
         best_lat = np.where(take, lat_m, best_lat)
+        best_d = np.where(take, d, best_d)
         out["end"] = np.where(take, e, out["end"])
         out["lateral"] = np.where(take, ang, out["lateral"])
         with np.errstate(invalid="ignore", divide="ignore"):
-            glide = np.degrees(np.arctan2(alt - r.elevation_m, d))
+            height = alt - r.elevation_m
+            glide = np.degrees(np.arctan2(height, d))
             out["glide"] = np.where(
                 take, np.abs(glide - params.GLIDESLOPE_DEG), out["glide"]
+            )
+            out["height_ok"] = np.where(
+                take,
+                ~(height > tan_cone * d + params.APPROACH_CONE_FLOOR_M),
+                out.get("height_ok", np.zeros(n, dtype=bool)),
             )
             ref = a["gs"][idx] * tan_gs
             desc = np.abs(-a["vrate"][idx] - ref) / ref
             out["descent"] = np.where(take, desc, out["descent"])
+    on_final = (
+        (out["end"] >= 0)
+        & (best_d <= params.APPROACH_FINAL_KM * 1000.0)
+        & out.get("height_ok", np.zeros(n, dtype=bool)).astype(bool)
+    )
+    out["end"] = np.where(on_final, out["end"], -1)
+    for k in ("lateral", "glide", "descent"):
+        out[k] = np.where(on_final, out[k], np.nan)
     out["final"] = out["end"] >= 0
 
     # distance to the nearest runway axis (infinite line through both thresholds)
@@ -231,7 +241,9 @@ def _airborne(
         out["phase"] = np.where(
             np.isnan(alt),
             np.nan,
-            ((alt - elev < PHASE_LOW_M) & (axis > PHASE_AXIS_M)).astype("float64"),
+            ((alt - elev < params.PHASE_LOW_M) & (axis > params.PHASE_AXIS_M)).astype(
+                "float64"
+            ),
         )
     return out
 
@@ -257,9 +269,10 @@ def window_level(
 
     n = len(a["t"])
     inmap = _in_box(a["lat"], a["lon"])
+    at_airport = _in_box(a["lat"], a["lon"], config.AIRPORT_BOX)
     x, y = layers.to_metric(a["lon"], a["lat"])
     aircraft = a["domain"] == "aircraft"
-    gmask = a["ground"] & inmap
+    gmask = a["ground"] & at_airport
     amask = ~a["ground"] & inmap & aircraft
     heli = ~f["kin_checks"]
 
@@ -313,12 +326,12 @@ def window_level(
 
     # on-ground flag against height and speed (aircraft)
     og = a["on_ground"]
-    known = aircraft & inmap & og.notna().to_numpy()
+    known = aircraft & at_airport & og.notna().to_numpy()
     ogb = og.fillna(False).to_numpy(dtype=bool)
     elev = float(layers.runways["elevation_m"].iloc[0])
     with np.errstate(invalid="ignore"):
-        c_ground = ogb & (a["alt_baro"] - elev > GROUND_ALT_CONFLICT_M)
-        c_air = ~ogb & ~heli & (a["gs"] < AIRBORNE_MIN_MPS)
+        c_ground = ogb & (a["alt_baro"] - elev > params.GROUND_ALT_CONFLICT_M)
+        c_air = ~ogb & ~heli & (a["gs"] < params.AIRBORNE_MIN_MPS)
     ground_conflict = np.where(known, (c_ground | c_air).astype("float64"), np.nan)
 
     # identity rules on the declared (raw) type
@@ -329,13 +342,16 @@ def window_level(
     )
     declared = aircraft & inmap & (raw_cls != None)
     env = envelopes().reindex(np.where(declared, raw_cls, "other"))
+    # callsigns arrive in a minority of messages: carry the last one forward (causal)
     callsign = (
-        p["callsign"].astype("string").fillna("").to_numpy(dtype=object)
+        p["callsign"].astype("string").groupby(a["code"]).ffill().fillna("")
         if "callsign" in p.columns
-        else np.full(n, "", dtype=object)
+        else pd.Series("", index=p.index)
     )
-    airline = np.array([bool(AIRLINE_CALLSIGN.match(c)) for c in callsign])
-    r1 = np.where(declared, (airline & (raw_cls == "light")).astype("float64"), np.nan)
+    airline = callsign.str.match(AIRLINE_CALLSIGN.pattern).to_numpy(dtype=bool)
+    # a light or unknown declared type under an airline callsign
+    small = np.isin(raw_cls, ["light", "other"])
+    r1 = np.where(declared, (airline & small).astype("float64"), np.nan)
     with np.errstate(invalid="ignore"):
         fast = (~a["ground"]) & (
             a["gs"] > env["max_air_speed_mps"].to_numpy(dtype="float64")

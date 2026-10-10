@@ -24,6 +24,26 @@ ZONE_BUFFER_M = 50.0  # "next to" a zone, for severity
 DWELL_MOVE_M = 10.0  # displacement that resets the dwell timer
 APPROACH_FINAL_KM = 10.0  # approach features apply inside this distance
 GLIDESLOPE_DEG = 3.0
+# feature-layer details (specs/03; values the spec states, or module 3 choices noted in STATUS)
+DEGRADED_NACP_BELOW = 8.0  # GPSJam reproduction: a reading is degraded if NACp < 8
+DEGRADED_ELIGIBLE_NACP = 8.0  # ... counted only once the track has reported NACp >= 8
+MIN_HISTORY_S = 30.0  # trailing baselines are NaN until the track has this much history
+MIN_JITTER_POINTS = 5  # quadratic jitter fit needs this many fixes
+TURN_MIN_DPS = 1.0  # turn radius only where the turn rate exceeds this
+# calibrated tau = max(default, this quantile of clean windows)
+THRESHOLD_QUANTILE = 0.999
+THRESHOLD_MIN_N = 100  # fewer clean windows than this: keep the registry default
+# GNSS noise margin for "in a zone" (off-zone, allowed zone, speed limit)
+ZONE_OCCUPANCY_MARGIN_M = 10.0
+APPROACH_ALIGN_DEG = 30.0  # reported course within this of the runway bearing
+# on final: height above threshold <= tan(this) x distance + floor
+APPROACH_CONE_DEG = 6.0
+APPROACH_CONE_FLOOR_M = 150.0
+PHASE_LOW_M = 150.0  # "low" for the phase check, above aerodrome elevation
+PHASE_AXIS_M = 500.0  # farther than this from every runway axis is "away"
+# on_ground with baro altitude this far above the aerodrome
+GROUND_ALT_CONFLICT_M = 300.0
+AIRBORNE_MIN_MPS = 10.0  # airborne fixed-wing slower than this contradicts the flag
 
 # --- labels (specs/03, specs/04) -------------------------------------------
 LABEL_POS_FRAC = 1.0 / 3.0  # window is anomalous if >= this share of its points is
