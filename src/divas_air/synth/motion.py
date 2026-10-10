@@ -294,7 +294,7 @@ def report(traj: Trajectory, ts: np.ndarray, layers, rng) -> dict:
     nacp, nic = gnss.integrity_from_sigma(sigma)
 
     gs = np.maximum(v + rng.normal(0, params.SPEED_NOISE_MPS, len(ts)), 0.0)
-    gs[v < 0.05] = 0.0
+    gs[v < SPEED_FLOOR] = 0.0
     track = np.mod(crs + rng.normal(0, params.COURSE_NOISE_DEG, len(ts)), 360.0)
     track[track >= 360.0] = 0.0
     return {

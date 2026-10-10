@@ -195,6 +195,8 @@ def test_incursion_reaches_target_and_labels_from_zone_entry():
     held = out[(out["t"] > ONSET + 50) & (out["t"] < ONSET + 70)]
     truth = held.assign(lat=tlat, lon=tlon)
     assert error_m(truth).max() < 2.0
+    # stopped at the target: gs is exactly 0, as on clean stopped assets
+    assert (held["gs_mps"] == 0.0).all()
 
 
 def test_inject_without_selection_raises():

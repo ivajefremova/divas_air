@@ -287,14 +287,14 @@ def plan_event(
     if not tracks:
         return None
     if cause == "possible_interference":
-        dur = min(rng.uniform(60, 180), room)
+        dur = min(rng.uniform(60, 240), room)
         onset = rng.uniform(lo, hi - dur)
         mid = points[(points["t"] >= onset) & (points["t"] < onset + dur)]
         x, y = _true_xy(mid, layers)
         best = None
         for _ in range(12):
             k = int(rng.integers(len(mid)))
-            r = rng.uniform(150, 400)
+            r = rng.uniform(150, 600)
             inside = np.hypot(x - x[k], y - y[k]) < r
             n = int((mid.loc[inside, "track_id"].value_counts() >= 3).sum())
             if n >= 3 and (best is None or n > best[0]):

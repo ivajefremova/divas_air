@@ -35,7 +35,7 @@ TRUCK_START = 210.0  # the truck leaves the road; labels start when it enters th
 TRUCK_ON_RUNWAY_S = 60.0
 SECTOR = (420.0, 150.0)
 SECTOR_RADIUS_M = 150.0
-N_PARKED = 5
+N_PARKED = 7  # two above the minimum, so a cell-edge fix cannot drop the alert
 
 
 def _runway_points(layers):
@@ -121,6 +121,8 @@ def build(layers=None) -> tuple[pd.DataFrame, pd.DataFrame]:
         "baggage_tractor",
         "catering_truck",
         "follow_me",
+        "bus",
+        "fuel_truck",
     )
     for k in range(N_PARKED):
         scripted[("vehicle", 2 + k)] = {

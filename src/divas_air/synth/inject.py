@@ -16,6 +16,7 @@ from pyproj import Geod
 
 from divas_air import params, schema
 from divas_air.geo import gnss, to_metric, to_wgs84
+from divas_air.synth.motion import SPEED_FLOOR
 
 _GEOD = Geod(ellps="WGS84")
 SIGMA0 = params.GNSS_OPEN_SIGMA_M
@@ -74,9 +75,11 @@ def _recompute_motion(t, lat, lon, rng):
     i1 = np.clip(np.arange(n) + 1, 0, n - 1)
     az, _, d = _GEOD.inv(lon[i0], lat[i0], lon[i1], lat[i1])
     dt = np.maximum(t[i1] - t[i0], 1e-3)
-    gs = d / dt + rng.normal(0, params.SPEED_NOISE_MPS, n)
+    v = d / dt
+    gs = np.maximum(v + rng.normal(0, params.SPEED_NOISE_MPS, n), 0.0)
+    gs[v < SPEED_FLOOR] = 0.0  # stopped assets report exactly 0, as in motion.report
     crs = np.mod(az + rng.normal(0, params.COURSE_NOISE_DEG, n), 360.0)
-    return np.maximum(gs, 0.0), crs
+    return gs, crs
 
 
 class _Track:
