@@ -74,12 +74,24 @@ class FleetProfile:
 
 # Apron: H3 res 9 is ~175 m edge. "Most of them degraded" = share > 0.5.
 # bin_s is the presence span (tracks with a window in the last bin_s) and the alert hold.
-APRON = FleetProfile("apron", h3_res=9, bin_s=60, min_tracks=3, cell_share_min=0.5, use_baseline_test=True)
+APRON = FleetProfile(
+    "apron",
+    h3_res=9,
+    bin_s=60,
+    min_tracks=3,
+    cell_share_min=0.5,
+    use_baseline_test=True,
+)
 # Regional: the GPSJam reproduction (red > 10 %, yellow > 2 %, >= 10 aircraft
 # per hexagon per day). h3_res MUST equal the value used by the existing Baltic
 # reproduction script; /bootstrap checks it and records it in DATA_INVENTORY.md.
 REGIONAL = FleetProfile(
-    "regional", h3_res=4, bin_s=86400, min_tracks=10, cell_share_min=0.10, use_baseline_test=False
+    "regional",
+    h3_res=4,
+    bin_s=86400,
+    min_tracks=10,
+    cell_share_min=0.10,
+    use_baseline_test=False,
 )
 FLEET_PROFILES = {p.name: p for p in (APRON, REGIONAL)}
 HALO_SIGMA_M = 150.0  # Gaussian kernel of live halos
@@ -88,3 +100,49 @@ FORECAST_HORIZONS_S = (30, 60)
 # --- API (specs/06) ---------------------------------------------------------
 REPLAY_STEP_S = 5  # = STRIDE_S
 HISTORY_S = 300  # integrity history shown on the verdict card
+
+# --- map layers (specs/02) --------------------------------------------------
+# Half widths used to turn OSM centerlines and points into zone polygons.
+RUNWAY_HALF_WIDTH_M = 30.0  # FCO runways are 60 m wide
+TAXIWAY_HALF_WIDTH_M = 12.0  # code E taxiway ~23 m
+SERVICE_ROAD_HALF_WIDTH_M = 4.0
+HOLDING_POINT_RADIUS_M = 15.0
+STAND_RADIUS_M = 30.0
+AIRPORT_ELEVATION_M = (
+    4.0  # LIRF 13 ft; runway threshold elevations are not in the layers
+)
+ZONE_CRITICALITY = {  # zone type -> CRITICALITY label (docs/DATA_INVENTORY.md gap 5)
+    "runway": "high",
+    "taxiway": "medium",
+    "holding_point": "medium",
+    "apron": "low",
+    "stand": "low",
+    "service_road": "low",
+}
+BUILDING_DEFAULT_HEIGHT_M = 6.0  # OSM buildings without height or levels
+BUILDING_TALL_DEFAULT_M = 15.0  # hangars and terminals without height
+BUILDING_LEVEL_M = 3.0
+
+# --- GNSS error model (specs/02 section 2) ----------------------------------
+# ASSUMPTION: the Decimeter-derived error model is not in data/ (DATA_INVENTORY
+# lists no path), so these are parametric stand-ins with the same shape:
+# open-sky sigma, scaled up with the highest building elevation angle.
+GNSS_OPEN_SIGMA_M = (
+    1.5  # per-axis 1-sigma in open sky (EPU 3.7 m -> NACp 10, as on fco)
+)
+GNSS_OBSTRUCTED_RATIO = 4.0  # error ratio at >= GNSS_FULL_OBSTRUCTION_DEG vs open sky
+GNSS_FULL_OBSTRUCTION_DEG = 45.0
+GNSS_WHITE_FRAC = 0.15  # white term, as a share of the Gauss-Markov sigma
+GNSS_TAU_S = (20.0, 60.0)  # Gauss-Markov correlation time, drawn per track
+BUILDING_SEARCH_M = 150.0  # buildings farther than this do not obstruct
+OBSTRUCTION_GRID_M = 10.0  # resolution of the precomputed elevation-angle grid
+
+# --- generator (specs/02) ---------------------------------------------------
+SYNTH_T0 = 1_600_000_000.0  # ground scenes start at SYNTH_T0 + slot x SYNTH_SLOT_S
+SYNTH_SLOT_S = 1200.0  # one slot per seed, so no two ground scenes share a clock
+SPEED_NOISE_MPS = 0.1  # reported ground speed noise
+COURSE_NOISE_DEG = 1.0  # reported course noise
+T_JITTER_S = 0.05  # timestamp jitter, uniform +-
+WORK_RADIUS_M = (
+    1200.0  # vehicle destinations lie within this of the scene's work center
+)

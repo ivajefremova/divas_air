@@ -6,7 +6,7 @@ One row per module. Update it when you start and when you finish a module: state
 |---|---|---|---|---|---|
 | 0 | Contracts | done | 2026-10-10 | 13 contract tests pass | |
 | 1 | Ingest | done | 2026-10-10 | fco 1,108,346 rows / 12,688 tracks / 2,781 aircraft / 8 days, typed 97.4 %; baltic 285,211 / 1,730 / 628 / 1 day, typed 87.7 %; control 1,190,201 / 8,020 / 3,506 / 1 day, typed 87.8 %. Rows dropped: 0 (no missing t/lat/lon). Byte-identical reruns, about 12 s for all three | adr_mock, lira: no data; `alt_geom_m`, `heading_deg` 100 % NaN |
-| 2 | Generator | not started | | scenes; points per cause; noise RMS | |
+| 2 | Generator | in progress | 2026-10-10 | scenes; points per cause; noise RMS | |
 | 3 | Features | not started | | over-limit share on clean `fco`; runtime; features still NaN | |
 | 4 | Models | not started | | AUROC, AUPRC vs baseline; macro-F1; ECE before and after | |
 | 5 | Fleet | not started | | Baltic red / qualifying cells; control cells above 2 % | |
