@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Divas Air</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="map"></div>
+
+<!-- top left: name, status, clock -->
+<header id="brand" class="card">
+  <div class="logo" aria-hidden="true"><span></span><span></span></div>
+  <div>
+    <div class="brand-name">Divas Air</div>
+    <div id="status" class="status">Loading…</div>
+  </div>
+  <div id="clock" class="clock"></div>
+</header>
+
+<!-- top right: demo menu -->
+<div id="demo">
+  <button id="demo-btn" class="card pill-btn" aria-expanded="false">Demo</button>
+  <div id="demo-menu" class="card menu" hidden>
+    <div id="demo-events"></div>
+    <div class="menu-sep"></div>
+    <button id="demo-play" class="menu-item"></button>
+    <button id="demo-restart" class="menu-item">Restart</button>
+    <div id="demo-source" class="menu-note"></div>
+  </div>
+</div>
+
+<!-- bottom left: map views -->
+<div id="views">
+  <button id="views-btn" class="card view-current" aria-expanded="false">
+    <span class="thumb" id="views-thumb"></span>
+    <span class="view-label" id="views-label">Photo</span>
+  </button>
+  <div id="views-menu" class="card" hidden>
+    <div class="view-grid" id="view-grid"></div>
+    <div class="menu-sep"></div>
+    <label class="toggle"><input type="checkbox" id="show-aircraft" checked><span></span>Aircraft</label>
+    <label class="toggle"><input type="checkbox" id="show-vehicles" checked><span></span>Vehicles</label>
+  </div>
+</div>
+
+<!-- right: alerts and details -->
+<button id="panel-tab" class="card" aria-controls="panel" aria-expanded="false">
+  <span class="tab-icon" aria-hidden="true">‹</span>
+  <span id="tab-count" class="tab-count" hidden>0</span>
+</button>
+<aside id="panel" class="card" aria-hidden="true">
+  <div id="panel-body"></div>
+</aside>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

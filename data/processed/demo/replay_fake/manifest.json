@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "airport": "LIRF",
+  "t_start": 1791899700.0,
+  "t_end": 1791900300.0,
+  "step_s": 5,
+  "n_frames": 121,
+  "frames_file": "frames.jsonl",
+  "events": [
+    {
+      "event_id": "ev_phantom",
+      "kind": "phantom_incursion",
+      "title": "Phantom runway incursion",
+      "t_start": 1791899800.0,
+      "t_end": 1791899860.0,
+      "track_ids": [
+        "synthetic:veh_017:0"
+      ]
+    },
+    {
+      "event_id": "ev_real",
+      "kind": "real_incursion",
+      "title": "Real runway incursion",
+      "t_start": 1791899950.0,
+      "t_end": 1791900010.0,
+      "track_ids": [
+        "synthetic:veh_031:0"
+      ]
+    },
+    {
+      "event_id": "ev_sector",
+      "kind": "sector_interference",
+      "title": "Sector interference",
+      "t_start": 1791900100.0,
+      "t_end": 1791900250.0,
+      "track_ids": [
+        "synthetic:veh_044:0",
+        "synthetic:veh_045:0",
+        "synthetic:veh_052:0"
+      ]
+    }
+  ]
+}

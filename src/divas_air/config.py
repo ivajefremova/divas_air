@@ -1,9 +1,13 @@
+import os
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 RAW, PROCESSED, REFERENCE = DATA / "raw", DATA / "processed", DATA / "reference"
 LAYERS = ROOT / "map" / "layers"
+
+# orthophoto XYZ tiles for the web map (kept off git; point at the hard drive if elsewhere)
+TILES = Path(os.getenv("DIVAS_TILES_DIR", ROOT / "map" / "tiles"))
 
 CRS_WGS84 = "EPSG:4326"
 CRS_METRIC = "EPSG:32633"  # UTM 33N, distances in meters

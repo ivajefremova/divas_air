@@ -31,3 +31,6 @@ data/processed/points/
 data/processed/features/
 data/processed/fleet/*_cells.parquet
 data/processed/verdicts/
+
+# macOS
+.DS_Store
