@@ -127,9 +127,14 @@ BUILDING_LEVEL_M = 3.0
 # ASSUMPTION: the Decimeter-derived error model is not in data/ (DATA_INVENTORY
 # lists no path), so these are parametric stand-ins with the same shape:
 # open-sky sigma, scaled up with the highest building elevation angle.
-GNSS_OPEN_SIGMA_M = (
-    1.5  # per-axis 1-sigma in open sky (EPU 3.7 m -> NACp 10, as on fco)
-)
+GNSS_MODEL_OPEN_SIGMA_M = 1.5  # per-axis 1-sigma of the parametric model in open sky
+# The model's absolute values give an open-sky median horizontal error of 1.79 m
+# (Rayleigh median 1.177 x per-axis sigma, white term included). Scaled so the
+# open-sky median is about 1.5 m. The scale multiplies every sigma, so the
+# relative growth with obstruction is unchanged; static halos (module 5) read
+# GNSS_OPEN_SIGMA_M and get the same scale.
+GNSS_ERROR_SCALE = 0.84
+GNSS_OPEN_SIGMA_M = GNSS_MODEL_OPEN_SIGMA_M * GNSS_ERROR_SCALE  # EPU 3.1 m -> NACp 10
 GNSS_OBSTRUCTED_RATIO = 4.0  # error ratio at >= GNSS_FULL_OBSTRUCTION_DEG vs open sky
 GNSS_FULL_OBSTRUCTION_DEG = 45.0
 GNSS_WHITE_FRAC = 0.15  # white term, as a share of the Gauss-Markov sigma
@@ -146,3 +151,8 @@ T_JITTER_S = 0.05  # timestamp jitter, uniform +-
 WORK_RADIUS_M = (
     1200.0  # vehicle destinations lie within this of the scene's work center
 )
+SYNTH_GROUND_SCENES = 800  # enough for >= 150 events of every cause
+# behavioral speeding: true speed = zone limit x U(ratio range), kept under the class max
+SPEEDING_RATIO = (1.2, 1.8)
+SPEEDING_CLASS_MARGIN = 0.95  # speeding stays below this share of the class max speed
+SPEEDING_MIN_S = 20.0  # a speeding stretch lasts at least this long
