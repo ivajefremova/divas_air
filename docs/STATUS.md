@@ -7,7 +7,7 @@ One row per module. Update it when you start and when you finish a module: state
 | 0 | Contracts | done | 2026-10-10 | 13 contract tests pass | |
 | 1 | Ingest | done | 2026-10-10 | fco 1,108,346 rows / 12,688 tracks / 2,781 aircraft / 8 days, typed 97.4 %; baltic 285,211 / 1,730 / 628 / 1 day, typed 87.7 %; control 1,190,201 / 8,020 / 3,506 / 1 day, typed 87.8 %. Rows dropped: 0 (no missing t/lat/lon). Byte-identical reruns, about 12 s for all three | adr_mock, lira: no data; `alt_geom_m`, `heading_deg` 100 % NaN |
 | 2 | Generator | done | 2026-10-10 | 840 scenes (800 ground x 600 s, 40 approach x 1 h), 9,253,309 points, 25,142 tracks; plausible 97.6 % of points; events per cause: technical_error 289, spoofing 236, degraded 230, behavioral 195 (incursion 72, deviate 63, speeding 60), gnss_anomaly 194, interference 169; anomalous points by cause: interference 66.8 %, spoofing 7.7 %, degraded 6.7 %, gnss_anomaly 6.6 %, behavioral 6.6 %, technical_error 5.6 %; plausible vehicle error median 2.85 m (open sky 1.51 m), RMS 4.55, p95 9.34; `make synth` about 220 s | `alt_geom_m` all NaN, so the altitude-drift part of gnss_anomaly and spoofing is a no-op; no over-dwell behavioral mode; technical_error jump always reverts (no held variant); some generator constants are inline in `synth/` instead of `params.py`; plausible share is 97.6 %, not 98 % (see notes) |
-| 3 | Features | in progress | 2026-10-10 | over-limit share on clean `fco`; runtime; features still NaN | |
+| 3 | Features | done | 2026-10-10 | Over-limit share on clean `fco` (windows with >= 4 fixes and any envelope ratio > 1.5): **0.058 %** (target < 0.1 %; P0 only 0.039 %); held-out days 0.063 %. Runtime: fco 1.1 M points in 31 s, all five sources and calibration in 10 min (synthetic 550 s). Windows: fco 917,001, baltic 410,727, control 2,182,132, synthetic 2,870,487, demo 3,751. Degraded-majority windows: baltic 10.9 %, control 0.07 %, fco 0.03 %. 72 thresholds, 26 fitted | Only depend on these after reading the decisions below: 5 interpretations of the spec keep fco under 0.1 %. All-NaN: `kin_accel_imp_ratio_max` (P1, held back), `sig_alt_div_*` (no `alt_geom_m`), `kin_heading_course_diff_max` on real data (no `heading_deg`). Vehicle taus are fitted on all synthetic scenes: rerun `--calibrate` after module 4 writes `splits.json` |
 | 4 | Models | not started | | AUROC, AUPRC vs baseline; macro-F1; ECE before and after | |
 | 5 | Fleet | not started | | Baltic red / qualifying cells; control cells above 2 % | |
 | 6 | API | not started | | step latency; seconds to detect each demo event | |
@@ -70,3 +70,70 @@ One row per module. Update it when you start and when you finish a module: state
 - **For module 5:** static halos do not exist yet, so the scale is not applied to them in code. Compute `expected_error_m` from `gnss.sigma_m` (or `params.GNSS_OPEN_SIGMA_M x gnss.error_ratio`), not from `GNSS_MODEL_OPEN_SIGMA_M`, so the halos match the generator. The median horizontal error is 1.177 x sqrt(1 + GNSS_WHITE_FRAC^2) x sigma.
 - Demo: the code and script are unchanged. `demo_events.parquet` is byte-identical. `demo.parquet` now carries the scaled nominal noise (and a scaled `ev_sector` noise multiple), because it uses the same error model.
 - Checks: `make accept N=2` 18 passed, `make unit` 42 passed, `make contracts` 13 passed. `make lint` still fails only on the 18 pre-existing issues in `scripts/` and frozen `tests/acceptance/`. The Makefile calls a bare `python`, so run it with `PY=.venv/bin/python` (and the venv on PATH for `ruff`) unless the venv is active.
+
+
+### Module 3 (features), 2026-10-10
+
+Checks: `make accept N=3` 16 passed, `make unit` 64 passed, `make contracts` 13 passed. `make lint` still fails only on the 18 pre-existing issues in `scripts/` and in frozen `tests/acceptance/`; module 3 files are clean. The acceptance-verifier reviewed the module. I fixed its findings 1-9 and re-measured; the numbers above are after the fixes.
+
+**Over-limit share on clean fco, step by step.** Each row adds one rule to the row above. Only a reading of the spec gets fco under the target, never a threshold change.
+
+| Rule set | Share of scored windows over the limit |
+|---|---|
+| literal spec | 2.06 % |
+| + aircraft get the taxi limit only on mapped LIRF taxi surfaces | 1.06 % |
+| + no airborne turn-rate envelope for aircraft on the ground | 0.82 % |
+| + a moving gs without a course is not a report | 0.77 % |
+| + position-only fixes get no envelope ratios | 0.24 % |
+| + `kin_accel_imp_ratio_max` held back (P1) | 0.058 % |
+
+#### Decisions for the human
+
+Each decision is recorded in the code and can be reverted on its own. The verifier re-ran the literal rule for each of decisions 1-4. Each one alone would put fco over 0.1 %.
+
+1. **Taxi speed limit for aircraft only on mapped LIRF taxi surfaces.**
+   - Rule: taxiway, apron, stand or holding point within `ZONE_BUFFER_M`, and off the runway buffer. Everywhere else (runways, unmapped airports) the air limit applies.
+   - Why: 7,560 on-ground fco fixes at about 35 m/s are take-off and landing rolls, almost all at Ciampino (LIRA, 41.80 N 12.60 E). Ciampino is inside `APPROACH_BOX` but has no map.
+   - Caveats: with `layers=None` the literal rule applies, so the engine and the pipeline must always pass `MapLayers`. A spoofed ground fix off the map is checked against the air limit.
+   - Code: `features/__init__.py` `_arrays`; `mapfeat.taxi_surface_mask`.
+2. **No airborne turn-rate envelope for aircraft on the ground.**
+   - `kin_turn_rate_ratio_max` and `kin_turn_rate_imp_ratio_max` are NaN for aircraft ground fixes.
+   - Why: `max_turn_rate_dps` (6 deg/s) is an airborne figure; `scripts/check_envelopes.py` validated it on airborne fixes only. A ground turn is bounded by `kin_turn_radius_ratio_max`, which still applies.
+3. **A gs above `COURSE_MIN_MPS` reported without `track_deg` counts as not reported.**
+   - Why: these are readsb's stale velocities. Examples: a taxi gs of 12 m/s held through a take-off roll; a single 124 m/s reading among 243 m/s readings.
+   - Evidence: such readings are 0.4 % of all gs readings, but they sit next to 83 % of the reported-acceleration violations.
+   - For module 1: the upstream filter probably ignores readsb's stale-velocity flag.
+4. **Position-only fixes get NaN envelope ratios.**
+   - Definition: no gs, no course, no NACp, and NIC missing or 0 ("Rc unknown").
+   - What they are: 417 fco tracks, 10,656 fixes, consistent with MLAT or TIS-B. These are not GNSS reports, and their positions jump by hundreds of meters.
+   - Their consistency and jitter features are still computed. The aircraft calibration leaves out windows without NACp.
+5. **`kin_accel_imp_ratio_max` ships all-NaN** (P1, allowed by requirement 9).
+   - Why: over 5 s pairs, the change of implied speed is dominated by ADS-B position and timestamp noise: 0.72 % over-limit on clean fco, still 0.21 % after decision 4.
+   - Option: a 10 s base gave 0.27 % before decision 4 and 0.055 % on the other tracks. Re-enabling it needs a spec decision on the pair base. The per-fix value is still computed (`core.WITHHELD`).
+6. **Map features only where the map exists.** Ground fixes get them inside `AIRPORT_BOX`, airborne fixes inside `APPROACH_BOX`. Elsewhere (Ciampino, Baltic, control) all spatial and contextual features are NaN, including `spa_zone_crit_max`. Module 4 and 5 severity must handle a NaN zone criticality.
+7. **Type-violation crossings.** A non-runway zone the class may not enter does not count while the fix is also within `ZONE_OCCUPANCY_MARGIN_M` (10 m, the GNSS noise margin) of a zone the class may enter. Runway violations always count.
+8. **The noise margin also applies elsewhere.** Off-zone, allowed-zone and zone-speed-limit membership use `ZONE_OCCUPANCY_MARGIN_M`.
+   - Why: with strict containment, 19 % of clean synthetic vehicle windows were "off-zone" and 1.5 % had a violation. With the margin: 0.06 % and 0.001 %.
+   - Cost: `ctx_type_violation` fires on 31 % of behavioral windows (some of those windows are speeding or deviation, not incursion).
+9. **Final approach: a height cone the spec does not have.**
+   - Selection: the runway is the aligned end (course within 30 deg, threshold ahead) with the nearest extended centerline. Then distance <= `APPROACH_FINAL_KM` applies, plus height <= tan(6 deg) x distance + 150 m (`APPROACH_CONE_*`).
+   - Why: without the cone, 6,375 cruise overflights counted as "final", with criticality 1.0.
+   - Result: lateral deviation p99 is 0.48 deg. The fitted p99.9 is still 57.5 deg: 0.4 % of final windows, at real final distances and low altitude. These may be circling or side-step approaches; I did not check them further.
+10. **GPSJam eligibility in `sig_degraded_frac`.** It counts readings only once the track has reported NACp >= 8 (causal), via the new `degradation.is_eligible_reading`. Module 5 should use the same pair of functions. Effect on control degraded-majority windows: 2.27 % -> 0.07 %.
+11. **Identity rule 1** also fires when an airline callsign meets a raw type that maps to `other` (unknown), not only `light`. Callsigns are carried forward within the track. All 4 known misidentified airliners are now flagged; 0.16 % of other fco windows fire (callsign prefixes BIO, P4L, OEF, ITY; 11 tracks).
+12. **Calibration details.**
+    - Fitted only on windows with >= `MIN_POINTS` fixes.
+    - Aircraft windows must report NACp.
+    - A feature with fewer than `THRESHOLD_MIN_N` (100) clean windows keeps the registry default. Example: `spa_route_dist_*` for aircraft had only 6 LIRF ground windows.
+13. **`tmp_frozen_run_s`** counts from the start of the run of repeated positions, which may lie before the window. It is capped at `BASELINE_S`, so it stays inside the buffer.
+
+#### Notes for the next modules
+
+- **Module 4:**
+  - Fitted aircraft taus are large because real ADS-B is noisy: `kin_speed_resid_max` 48 m/s, `kin_pos_jitter_m` 50 m, `tmp_gap_max_s` 213 s.
+  - Clean synthetic over-limit share: aircraft 0.035 %, vehicles 0.086 %.
+  - Median `kin_pos_jitter_m` by cause: plausible 2.7 m, interference 9.5 m, gnss_anomaly 7.7 m, degraded 7.2 m.
+  - `ctx_zone_speed_ratio_max > 1.2` on 1.3 % of clean synthetic vehicle windows: the generator drives slightly over the 30 km/h service-road limit.
+- **Control day (clean Europe):** 0.70 % envelope over-limit, led by `kin_vrate_ratio_max` (0.47 %) and "light"-class aircraft at about 200 m/s. This looks like type-to-class mapping outside Italy; not checked further.
+- **Online engine (module 6):** baselines read fixes in (t_end - 330 s, t_end]; the dwell timer is per-track state (`mapfeat.dwell_seconds`). Call `compute_features` with `MapLayers`, or decision 1 changes kinetic values.
+- Map features on fco: 3 ground fixes at LIRF in 8 days. The LIRF ground paths are exercised only on synthetic data and in unit tests.
