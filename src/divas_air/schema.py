@@ -112,6 +112,7 @@ _LABEL_COLUMNS: tuple[str, ...] = (
     "scene_id",
     "base_track_id",
 )
+LABEL_COLUMNS: tuple[str, ...] = _LABEL_COLUMNS
 
 # Columns that can never appear in a model feature list.
 FORBIDDEN_FEATURE_COLUMNS: frozenset[str] = frozenset(
