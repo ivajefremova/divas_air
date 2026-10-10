@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LIRF Map Viewer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1d1d1f;
+    --muted: #5f6368;
+    --border: #d9dce1;
+    --panel: rgba(255, 255, 255, 0.95);
+  }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg);
+    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #map { position: absolute; inset: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  .title h1 { font-size: 15px; margin: 0 0 2px; }
+  .title p { margin: 0; color: var(--muted); }
+  .legend { max-width: 230px; }
+  .legend h2 { font-size: 12px; margin: 8px 0 4px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .legend h2:first-child { margin-top: 0; }
+  .legend div { display: flex; align-items: center; gap: 8px; margin: 2px 0; }
+  .sw-line { width: 22px; height: 0; border-top-style: solid; }
+  .sw-fill { width: 18px; height: 12px; border: 2px solid; box-sizing: border-box; }
+  .sw-dot { width: 10px; height: 10px; border: 1px solid #222; box-sizing: border-box; }
+  .opacity label { display: block; margin: 2px 0; }
+  .opacity input { width: 140px; vertical-align: middle; }
+  .coords { font-variant-numeric: tabular-nums; min-width: 260px; }
+  .leaflet-popup-content table { border-collapse: collapse; }
+  .leaflet-popup-content td { padding: 1px 6px 1px 0; vertical-align: top; }
+  .leaflet-popup-content td:first-child { color: var(--muted); }
+  @media (max-width: 600px) {
+    .legend { display: none; }
+    .coords { min-width: 0; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
+<script src="data/osm_multipolygons.js"></script>
+<script src="data/osm_lines.js"></script>
+<script src="data/osm_points.js"></script>
+<!-- Map pack layers (written by tools\export_viewer.bat after steps 3-6; missing files are simply skipped) -->
+<script src="data/approach_corridors.js"></script>
+<script src="data/airport_boundary.js"></script>
+<script src="data/taxiway_area.js"></script>
+<script src="data/runways.js"></script>
+<script src="data/aprons.js"></script>
+<script src="data/buildings.js"></script>
+<script src="data/sensitive_zones.js"></script>
+<script src="data/restricted_parking.js"></script>
+<script src="data/taxiways.js"></script>
+<script src="data/service_roads.js"></script>
+<script src="data/network_edges.js"></script>
+<script src="data/network_nodes.js"></script>
+<script src="data/stands.js"></script>
+<script src="data/key_points.js"></script>
+<script>
+// ---- Map ---------------------------------------------------------------
+const map = L.map('map', { maxZoom: 22, zoomControl: true, preferCanvas: true }).setView([41.8045, 12.2510], 14);
+map.attributionControl.setPrefix(false);
+
+// ---- Base maps (online) -------------------------------------------------
+const osmBase = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxNativeZoom: 19, maxZoom: 22, attribution: '© OpenStreetMap contributors'
+});
+const esriBase = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxNativeZoom: 19, maxZoom: 22, attribution: 'Imagery © Esri (reference only)'
+});
+const noBase = L.layerGroup();
+noBase.addTo(map);
+
+// ---- Imagery ------------------------------------------------------------
+// Own panes so the drawing order is: basemap (200) < Sentinel-2 (250) < aerial photo (260) < vectors (400)
+map.createPane('s2Pane').style.zIndex = 250;
+map.createPane('orthoPane').style.zIndex = 260;
+
+// Aerial orthophoto 2023, 0.2 m, pre-rendered XYZ tiles z13–19 in ./tiles
+const ortho = L.tileLayer('tiles/{z}/{x}/{y}.jpg', {
+  pane: 'orthoPane', minNativeZoom: 13, maxNativeZoom: 19, maxZoom: 22,
+  bounds: [[41.7710, 12.2027], [41.8512, 12.2941]],
+  attribution: 'Orthophoto 2023 (AGEA, hackathon kit)'
+}).addTo(map);
+
+// Sentinel-2 L2A true color 2026-09-01, PNG in Web Mercator (EPSG:3857)
+const merc = L.Projection.SphericalMercator;
+const s2Bounds = L.latLngBounds(
+  merc.unproject(L.point(1359054.610, 5127474.360)),
+  merc.unproject(L.point(1368707.344, 5139154.303))
+);
+const s2 = L.imageOverlay('img/s2_truecolor_20260901.png', s2Bounds, {
+  pane: 's2Pane', attribution: 'Contains modified Copernicus Sentinel data 2026'
+}).addTo(map);
+
+// ---- OSM vector layers --------------------------------------------------
+const lineStyle = {
+  runway:           { color: '#e61e1e', weight: 4 },
+  stopway:          { color: '#e67878', weight: 3 },
+  taxiway:          { color: '#ffd700', weight: 2.5 },
+  taxilane:         { color: '#ffaa00', weight: 2 },
+  parking_position: { color: '#00dcff', weight: 1.2 },
+  _other:           { color: '#c8c8c8', weight: 1.2 }
+};
+const polyStyle = {
+  aerodrome: { color: '#ff00ff', weight: 2.5, fill: false },
+  apron:     { color: '#00aaff', weight: 1.5, fillOpacity: 0.18 },
+  terminal:  { color: '#ff8c00', weight: 1.5, fillOpacity: 0.18 },
+  hangar:    { color: '#aa6e28', weight: 1.5, fillOpacity: 0.18 },
+  _other:    { color: '#ffffff', weight: 1.2, fill: false }
+};
+const pointStyle = {
+  parking_position: { fillColor: '#00dcff', radius: 4 },
+  gate:             { fillColor: '#3c5aff', radius: 4 },
+  holding_position: { fillColor: '#ff2828', radius: 5 },
+  _other:           { fillColor: '#ffffff', radius: 3 }
+};
+const pick = (table, key) => table[key] || table._other;
+
+function popup(feature, layer) {
+  const p = feature.properties || {};
+  const rows = Object.entries(p)
+    .filter(([k, v]) => v !== null && v !== '' && k !== 'other_tags')
+    .map(([k, v]) => `<tr><td>${k}</td><td>${String(v).replace(/</g, '&lt;')}</td></tr>`);
+  if (p.other_tags) rows.push(`<tr><td>other</td><td>${String(p.other_tags).replace(/</g, '&lt;')}</td></tr>`);
+  layer.bindPopup(`<table>${rows.join('')}</table>`, { maxWidth: 320 });
+}
+
+// Once the map pack exists (steps 3-6), show it by default and hide the raw OSM layers.
+const hasPack = !!LIRF.runways;
+
+const osmPolys = L.geoJSON(LIRF.osm_multipolygons, {
+  style: f => pick(polyStyle, f.properties.aeroway),
+  onEachFeature: popup
+});
+
+const osmLines = L.geoJSON(LIRF.osm_lines, {
+  style: f => Object.assign({ opacity: 0.95, lineCap: 'round' }, pick(lineStyle, f.properties.aeroway)),
+  onEachFeature: popup
+});
+
+const osmPoints = L.geoJSON(LIRF.osm_points, {
+  pointToLayer: (f, ll) => L.circleMarker(ll, Object.assign(
+    { color: '#222', weight: 1, fillOpacity: 0.95 }, pick(pointStyle, f.properties.aeroway))),
+  onEachFeature: popup
+});
+if (!hasPack) [osmPolys, osmLines, osmPoints].forEach(l => l.addTo(map));
+
+// ---- Map pack layers (EPSG:32633 GeoPackage exported to lon/lat) ---------
+const edgeColor = { taxiway: '#1e88e5', taxilane: '#64b5f6', service_road: '#43a047' };
+const packDefs = [
+  ['approach_corridors', 'Approach corridors', true,
+    { style: { color: '#9c27b0', weight: 1.5, dashArray: '6 4', fillOpacity: 0.08 } }],
+  ['airport_boundary', 'Airport boundary', true,
+    { style: { color: '#ff00ff', weight: 2.5, fill: false } }],
+  ['taxiway_area', 'Taxiway areas (core + GNSS tolerance)', true,
+    { style: f => f.properties.zone === 'core'
+        ? { color: '#ffb300', weight: 1, fillColor: '#ffb300', fillOpacity: 0.35 }
+        : { color: '#ffd700', weight: 1, dashArray: '4 4', fillOpacity: 0.06 } }],
+  ['runways', 'Runways', true,
+    { style: { color: '#e61e1e', weight: 1, fillColor: '#e61e1e', fillOpacity: 0.35 } }],
+  ['aprons', 'Aprons', false,
+    { style: { color: '#00aaff', weight: 1.5, fillOpacity: 0.18 } }],
+  ['buildings', 'Buildings (terminals, hangars)', false,
+    { style: { color: '#ff8c00', weight: 1.5, fillOpacity: 0.18 } }],
+  ['sensitive_zones', 'Sensitive zones', true,
+    { style: { color: '#d50000', weight: 2, fillColor: '#d50000', fillOpacity: 0.25 } }],
+  ['restricted_parking', 'Restricted parking', true,
+    { style: { color: '#6d4c41', weight: 2, dashArray: '2 4', fillOpacity: 0.2 } }],
+  ['taxiways', 'Taxiway centerlines', false,
+    { style: { color: '#ffd700', weight: 2 } }],
+  ['service_roads', 'Service roads', false,
+    { style: { color: '#c8c8c8', weight: 1.5 } }],
+  ['network_edges', 'Route network: edges', false,
+    { style: f => ({ color: edgeColor[f.properties.kind] || '#999', weight: 2.5 }) }],
+  ['network_nodes', 'Route network: nodes', false,
+    { pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 2.5, color: '#111', weight: 1, fillColor: '#fff', fillOpacity: 1 }) }],
+  ['stands', 'Stands', true,
+    { pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 4, color: '#222', weight: 1, fillColor: '#00dcff', fillOpacity: 0.95 }) }],
+  ['key_points', 'Key points (holding points, stations)', true,
+    { pointToLayer: (f, ll) => L.circleMarker(ll, {
+        radius: f.properties.type === 'holding_point' ? 4 : 7, color: '#fff', weight: 1.5,
+        fillColor: f.properties.type === 'holding_point' ? '#ff2828' : '#ff6d00', fillOpacity: 1 }) }]
+];
+const packLayers = {};
+for (const [key, label, on, opts] of packDefs) {
+  const data = LIRF[key];
+  if (!data || !data.features || data.features.length === 0) continue;
+  const lyr = L.geoJSON(data, Object.assign({ onEachFeature: popup }, opts));
+  packLayers['Map pack · ' + label] = lyr;
+  if (on) lyr.addTo(map);
+}
+
+// ---- Controls -----------------------------------------------------------
+L.control.layers(
+  { 'No basemap': noBase, 'OpenStreetMap (online)': osmBase, 'Esri World Imagery (online)': esriBase },
+  Object.assign({
+    'Aerial photo 2023 (0.2 m)': ortho,
+    'Sentinel-2 true color 2026-09-01': s2,
+    'Raw OSM polygons (boundary, aprons, buildings)': osmPolys,
+    'Raw OSM lines (runways, taxiways, roads)': osmLines,
+    'Raw OSM points (stands, gates, holding)': osmPoints
+  }, packLayers),
+  { collapsed: false, position: 'topright' }
+).addTo(map);
+
+L.control.scale({ metric: true, imperial: false, maxWidth: 200 }).addTo(map);
+
+function panel(position, className, html) {
+  const c = L.control({ position });
+  c.onAdd = () => {
+    const d = L.DomUtil.create('div', 'panel ' + className);
+    d.innerHTML = html;
+    L.DomEvent.disableClickPropagation(d);
+    L.DomEvent.disableScrollPropagation(d);
+    return d;
+  };
+  return c.addTo(map);
+}
+
+panel('topleft', 'title',
+  '<h1>Fiumicino (LIRF) map viewer</h1><p>Track Trust · ADR challenge · ' +
+  (hasPack ? 'map pack (EPSG:32633)' : 'raw OSM + imagery') + '</p>');
+
+const sw = (cls, color, extra = '') => `<span class="${cls}" style="border-color:${color};${extra}"></span>`;
+const packLegend = `
+  <h2>Map pack</h2>
+  <div>${sw('sw-fill', '#9c27b0', 'border-style:dashed;background:rgba(156,39,176,.08)')} Approach corridor</div>
+  <div>${sw('sw-fill', '#e61e1e', 'background:rgba(230,30,30,.35)')} Runway</div>
+  <div>${sw('sw-fill', '#ffb300', 'background:rgba(255,179,0,.35)')} Taxiway area (core)</div>
+  <div>${sw('sw-fill', '#ffd700', 'border-style:dashed')} GNSS tolerance zone</div>
+  <div>${sw('sw-fill', '#ff00ff')} Airport boundary</div>
+  <div>${sw('sw-line', '#1e88e5', 'border-top-width:3px')} Network: taxiway edge</div>
+  <div>${sw('sw-line', '#43a047', 'border-top-width:3px')} Network: service road edge</div>
+  <div>${sw('sw-dot', '#222', 'background:#00dcff;border-radius:50%')} Stand</div>
+  <div>${sw('sw-dot', '#fff', 'background:#ff2828;border-radius:50%')} Holding point</div>
+  <div>${sw('sw-dot', '#fff', 'background:#ff6d00;border-radius:50%')} Station (fire / SAR)</div>`;
+panel('bottomright', 'legend', hasPack ? packLegend : `
+  <h2>Lines</h2>
+  <div>${sw('sw-line', '#e61e1e', 'border-top-width:4px')} Runway centerline</div>
+  <div>${sw('sw-line', '#ffd700', 'border-top-width:3px')} Taxiway centerline</div>
+  <div>${sw('sw-line', '#ffaa00', 'border-top-width:2px')} Taxilane</div>
+  <div>${sw('sw-line', '#00dcff', 'border-top-width:2px')} Stand lead-in line</div>
+  <div>${sw('sw-line', '#c8c8c8', 'border-top-width:2px')} Service road / other</div>
+  <h2>Areas</h2>
+  <div>${sw('sw-fill', '#ff00ff')} Airport boundary</div>
+  <div>${sw('sw-fill', '#00aaff', 'background:rgba(0,170,255,.18)')} Apron</div>
+  <div>${sw('sw-fill', '#ff8c00', 'background:rgba(255,140,0,.18)')} Terminal</div>
+  <div>${sw('sw-fill', '#aa6e28', 'background:rgba(170,110,40,.18)')} Hangar</div>
+  <h2>Points</h2>
+  <div>${sw('sw-dot', '#222', 'background:#00dcff;border-radius:50%')} Stand</div>
+  <div>${sw('sw-dot', '#222', 'background:#3c5aff;border-radius:50%')} Gate</div>
+  <div>${sw('sw-dot', '#222', 'background:#ff2828;border-radius:50%')} Holding position</div>`);
+
+panel('topright', 'opacity', `
+  <label>Aerial photo opacity <input id="opOrtho" type="range" min="0" max="1" step="0.05" value="1"></label>
+  <label>Sentinel-2 opacity <input id="opS2" type="range" min="0" max="1" step="0.05" value="1"></label>`);
+document.getElementById('opOrtho').addEventListener('input', e => ortho.setOpacity(+e.target.value));
+document.getElementById('opS2').addEventListener('input', e => s2.setOpacity(+e.target.value));
+
+// Cursor position in lon/lat and UTM 33N (EPSG:32633, the working CRS)
+proj4.defs('EPSG:32633', '+proj=utm +zone=33 +datum=WGS84 +units=m +no_defs');
+const coords = panel('bottomleft', 'coords', 'Move the mouse over the map');
+map.on('mousemove', e => {
+  const [x, y] = proj4('EPSG:4326', 'EPSG:32633', [e.latlng.lng, e.latlng.lat]);
+  coords.getContainer().innerHTML =
+    `lat ${e.latlng.lat.toFixed(6)}, lon ${e.latlng.lng.toFixed(6)}<br>` +
+    `UTM 33N &nbsp;x ${x.toFixed(1)} m, y ${y.toFixed(1)} m`;
+});
+</script>
+</body>
+</html>
