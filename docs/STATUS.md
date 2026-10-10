@@ -5,7 +5,7 @@ One row per module. Update it when you start and when you finish a module: state
 | # | Module | State | Updated | Headline numbers | Open items |
 |---|---|---|---|---|---|
 | 0 | Contracts | done | 2026-10-10 | 13 contract tests pass | |
-| 1 | Ingest | not started | | rows and tracks per source; typed share | |
+| 1 | Ingest | in progress | 2026-10-10 | rows and tracks per source; typed share | blocked: `schema.LABEL_COLUMNS` missing (frozen file) |
 | 2 | Generator | not started | | scenes; points per cause; noise RMS | |
 | 3 | Features | not started | | over-limit share on clean `fco`; runtime; features still NaN | |
 | 4 | Models | not started | | AUROC, AUPRC vs baseline; macro-F1; ECE before and after | |
