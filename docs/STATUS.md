@@ -4,7 +4,7 @@ One row per module. Update it when you start and when you finish a module: state
 
 | # | Module | State | Updated | Headline numbers | Open items |
 |---|---|---|---|---|---|
-| 0 | Contracts | done | | 13 contract tests pass | run `/bootstrap` |
+| 0 | Contracts | done | 2026-10-10 | 13 contract tests pass | |
 | 1 | Ingest | not started | | rows and tracks per source; typed share | |
 | 2 | Generator | not started | | scenes; points per cause; noise RMS | |
 | 3 | Features | not started | | over-limit share on clean `fco`; runtime; features still NaN | |

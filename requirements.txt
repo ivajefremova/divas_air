@@ -25,3 +25,8 @@ kaggle
 gnss-lib-py
 pyopensky
 matplotlib
+pyproj
+scipy
+httpx
+pydantic>=2
+pytest

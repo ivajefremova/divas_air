@@ -23,3 +23,11 @@ CLAUDE.local.md
 __pycache__/
 *.egg-info/
 .ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+
+# processed artifacts (large, derived)
+data/processed/points/
+data/processed/features/
+data/processed/fleet/*_cells.parquet
+data/processed/verdicts/
