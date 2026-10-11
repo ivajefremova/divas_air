@@ -6,7 +6,7 @@ RULES="Nobody is available. Do not ask questions. Where the skill says to ask, \
 take the most conservative reading and record it in docs/STATUS.md under 'Decisions for the human'. \
 Never edit a frozen file (specs, contracts, acceptance tests) and never lower a metric floor. \
 If the acceptance tests cannot pass without that, commit what works, write the blocker in docs/STATUS.md and stop. \
-Module 4: write splits.json first and refit the feature thresholds on training scenes only before training any model."
+Generated outputs (the thresholds file, artifacts/models, data/processed) are rebuilt only by running the module CLIs or make targets, never by copying files over them."
 
 run() {
   while :; do
@@ -22,7 +22,7 @@ run() {
   done
 }
 
-for n in 4 5 6 8; do
+for n in 5 6 8; do
   ok=0
   for try in 1 2 3; do
     run "/build-module $n" "logs/m${n}_try${try}.jsonl"
