@@ -75,6 +75,23 @@ SEED = 42
 SPLIT_FRACTIONS = {"train": 0.6, "calib": 0.2, "test": 0.2}  # by scene_id
 N_FOLDS = 5  # GroupKFold over train scenes, for out-of-fold pass-1 scores
 REAL_HOLDOUT_DAYS = 2  # last N days of `fco` are never seen by training
+# LightGBM, shared by the three models. Modest capacity: the features carry the physics.
+LGB_PARAMS = {
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "min_data_in_leaf": 50,
+    "feature_fraction": 1.0,
+    "bagging_fraction": 1.0,
+    "deterministic": True,
+    "force_row_wise": True,
+    "num_threads": 8,
+    "verbosity": -1,
+}
+LGB_MAX_TREES = 500
+LGB_MIN_TREES = 50  # floor on the early-stopped tree count
+LGB_EARLY_STOP = 50  # rounds without improvement on the grouped validation fold
+LGB_VALID_FRAC = 0.2  # share of train scenes held out for early stopping
+ECE_BINS = 15
 
 
 # --- fleet layer (specs/05) -------------------------------------------------
