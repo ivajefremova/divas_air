@@ -61,7 +61,9 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hhmmss = (t) => new Date(t * 1000).toISOString().slice(11, 19);
 const forTime = (s) => (s < 60 ? `${Math.max(0, Math.round(s))} s` : `${Math.floor(s / 60)} min ${String(Math.round(s % 60)).padStart(2, '0')} s`);
-const nameOf = (v) => v.callsign || `${CLASS_NAME[v.asset_class] || 'Vehicle'} ${(v.asset_id.match(/\d+/g) || [v.asset_id]).pop()}`;
+const nameOf = (v) => v.callsign || (v.domain === 'aircraft'
+  ? `${CLASS_NAME[v.asset_class] || 'Aircraft'} ${v.asset_id.toUpperCase()}`
+  : `${CLASS_NAME[v.asset_class] || 'Vehicle'} ${(v.asset_id.match(/\d+/g) || [v.asset_id]).pop()}`);
 const quad = (v) => (v.quadrant === 'trusted' && v.trust_state === 'caution' ? 'caution' : v.quadrant);
 const isAlert = (v) => v.action.code !== 'none';
 const shown = (v) => (v.domain === 'aircraft' ? S.show.aircraft : S.show.vehicles);
@@ -214,7 +216,7 @@ function applyView(view) {
   for (const id of BASE_LAYERS) map.setLayoutProperty(id, 'visibility', VIEWS[view].on.includes(id) ? 'visible' : 'none');
   map.setPaintProperty('rwy-line', 'line-width', view === 'photo' ? 1.8 : 2.5);
   S.popup?.remove();
-  if (S.sel?.kind === 'camera' && view !== 'cameras') select(null);
+  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); renderCompare(); if (S.sel?.kind === 'camera') select(null); }
   highlightCamera();
   renderViews();
   if (S.frames.length) onFrame();
@@ -261,6 +263,11 @@ function markerFor(v) {
     if (S.view === 'schematic') {
       const p = S.pos.get(v.track_id);
       return placeInfo({ lng: p.lon, lat: p.lat }, map.project([p.lon, p.lat]));
+    }
+    if (S.sel?.kind === 'track' && S.sel.id !== v.track_id) {  // a dashboard is open: open this one alongside to compare
+      if (!S.compare.includes(v.track_id)) S.compare.push(v.track_id);
+      renderCompare();
+      return styleMarkers(S.frames[S.idx]);
     }
     select({ kind: 'track', id: v.track_id });
   });
@@ -528,27 +535,43 @@ function addCameras(points, cover) {
     el.className = `cam-pt${cam.status !== 'online' ? ' off' : ''}`;
     el.innerHTML = CAM_SVG;
     el.title = cam.camera_id;
-    el.addEventListener('click', (e) => { e.stopPropagation(); select({ kind: 'camera', id: cam.camera_id }); });
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const key = `cam:${cam.camera_id}`;
+      if (S.sel?.kind === 'camera' && S.sel.id !== cam.camera_id) {  // another camera is open: compare side by side
+        if (!S.compare.includes(key)) S.compare.push(key);
+        renderCompare();
+        highlightCamera();
+      } else select({ kind: 'camera', id: cam.camera_id });
+    });
     S.camMarkers.push({ id: cam.camera_id, el, marker: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(cam.coords).addTo(map) });
   }
 }
 
 function highlightCamera() {
   if (!map.getLayer('cam-cover')) return;
-  const id = S.sel?.kind === 'camera' ? S.sel.id : '';
-  map.setFilter('cam-cover', ['==', ['get', 'camera_id'], id]);
-  map.setFilter('cam-edge', ['==', ['get', 'camera_id'], id]);
-  S.camMarkers.forEach((m) => m.el.classList.toggle('on', m.id === id));
+  const ids = [S.sel?.kind === 'camera' ? S.sel.id : '', ...S.compare.filter((k) => k.startsWith('cam:')).map((k) => k.slice(4))];
+  const filter = ['in', ['get', 'camera_id'], ['literal', ids]];
+  map.setFilter('cam-cover', filter);
+  map.setFilter('cam-edge', filter);
+  S.camMarkers.forEach((m) => m.el.classList.toggle('on', ids.includes(m.id)));
 }
 
-function cameraDash(id) {
+function cameraDash(id, compact = false) {
   const cam = S.cameras.find((c) => c.camera_id === id);
-  const head = panelHead();
+  const head = compact ? `<button class="cmp-x" data-cmpclose="cam:${esc(id)}" aria-label="Close">×</button>` : panelHead();
   if (!cam) return head;
   const inView = cam.ring ? S.frames[S.idx].verdicts.filter((v) => isAlert(v) && S.pos.get(v.track_id) && inRing(S.pos.get(v.track_id), cam.ring)) : [];
   const footage = S.hasVideo
     ? '<video class="footage" src="media/camera.mp4" autoplay muted loop playsinline></video>'
     : `<div class="footage empty-feed">${CAM_SVG}<b>Live footage</b><span>Available once camera access is granted</span></div>`;
+  if (compact) {
+    return `${head}<div class="cmp-name">${esc(cam.camera_id)}</div><div class="cam-label">${esc(cam.label)}</div>
+      <div class="label">Sees</div><div class="sees">${(cam.sees || []).map((x) => `<span>${esc(x)}</span>`).join('') || '<span>Nothing mapped</span>'}</div>
+      <div class="label">Anomalies in view</div>
+      ${inView.length ? inView.map((v) => `<button class="imp" data-track="${esc(v.track_id)}"><span class="who">${esc(nameOf(v))}</span><b>${esc(ISSUE_WORD[quad(v)] || 'Check')}</b></button>`).join('') : '<div class="none">None right now</div>'}
+      ${footage}`;
+  }
   return `${head}
     <div class="dash-grid">
       <div class="col-a">
@@ -656,15 +679,18 @@ function renderCompare() {
       el = document.createElement('div'); el.className = 'cmp'; el.dataset.id = id; box.appendChild(el);
       makeMovable(el, `cmp:${id}`); placeSaved(el, `cmp:${id}`);
     }
-    el.innerHTML = compareCard(id);
+    el.innerHTML = id.startsWith('cam:') ? cameraDash(id.slice(4), true) : compareCard(id);
   }
   document.body.classList.toggle('comparing', S.compare.length > 0);
 }
 $('compare').addEventListener('click', (e) => {
+  const veh = e.target.closest('[data-track]');
+  if (veh) return select({ kind: 'track', id: veh.dataset.track });
   const x = e.target.closest('[data-cmpclose]');
   if (!x) return;
   S.compare = S.compare.filter((id) => id !== x.dataset.cmpclose);
   renderCompare();
+  highlightCamera();
   styleMarkers(S.frames[S.idx]);
 });
 

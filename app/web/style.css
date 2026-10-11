@@ -21,7 +21,7 @@
   --panel-w: 520px;
   --left-w: 470px;        /* brand + Demo button */
   --right-w: 72px;        /* reserved on the right when the dashboard is closed (its tab) */
-  --tray-h: 300px;        /* compare tray, when open */
+  --tray-h: 380px;        /* compare tray, when open */
 }
 body.panel-open { --right-w: calc(var(--panel-w) + 2 * var(--gap)); }
 
@@ -180,7 +180,7 @@ body.comparing #impact { max-height: calc(100% - 104px - var(--tray-h) - 2 * var
 /* --- compare tray: impacted vehicles side by side ------------------------------------------------------------------ */
 #compare { position: absolute; left: 260px; right: var(--right-w); bottom: var(--gap); max-height: var(--tray-h); z-index: 7;
   display: flex; gap: 10px; overflow-x: auto; align-items: flex-end; }
-.cmp { position: relative; flex: none; width: 300px; padding: 12px 14px 10px; }
+.cmp { position: relative; flex: none; width: 300px; padding: 12px 14px 10px; max-height: var(--tray-h); overflow-y: auto; }
 .cmp-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 4px; background: var(--navy-line); color: #fff; font-size: 18px; line-height: 1; }
 .cmp-name { font-size: 17px; font-weight: 800; margin: 0 34px 8px 0; }
 .cmp-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -282,3 +282,9 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
   #panel button, #impact button, .cmp button { cursor: pointer; }
   .dragging { cursor: grabbing !important; box-shadow: 0 16px 40px rgba(4, 19, 47, .45) !important; user-select: none; }
 }
+
+/* camera compare windows */
+.cmp .cam-label { margin: -4px 0 8px; font-size: 12.5px; }
+.cmp .sees { margin-bottom: 6px; }
+.cmp .imp { margin-bottom: 4px; padding: 6px 8px; grid-template-columns: 1fr auto; }
+.cmp .footage { height: 90px; margin-top: 8px; }
