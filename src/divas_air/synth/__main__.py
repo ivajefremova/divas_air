@@ -1,4 +1,4 @@
-"""CLI: python -m divas_air.synth --seed 42 [--scenes 200] [--approach-hours 40]."""
+"""CLI: python -m divas_air.synth --seed 42 [--scenes 800] [--approach-hours 40]."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from divas_air import config, schema
+from divas_air import config, params, schema
 from divas_air.geo import MapLayers
 from divas_air.synth.approach import approach_scenes
 from divas_air.synth.scene import finalize, generate_scene
@@ -33,7 +33,7 @@ def summary(points: pd.DataFrame, events: pd.DataFrame) -> str:
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser(prog="python -m divas_air.synth")
     ap.add_argument("--seed", type=int, default=42)
-    ap.add_argument("--scenes", type=int, default=200)
+    ap.add_argument("--scenes", type=int, default=params.SYNTH_GROUND_SCENES)
     ap.add_argument("--approach-hours", type=int, default=40)
     a = ap.parse_args(argv)
 

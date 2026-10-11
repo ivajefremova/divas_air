@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from itertools import pairwise
 
 import geopandas as gpd
 import numpy as np
@@ -12,7 +13,7 @@ from shapely.geometry import Point
 
 from divas_air import config, params, schema
 from divas_air.geo import MapLayers
-from divas_air.synth.inject import add_labels, apply_event
+from divas_air.synth.inject import add_labels, apply_event, zone_speed_limit
 from divas_air.synth.motion import RouteNet, drive, envelopes, report, sample_times
 
 SOURCE = "synthetic"
@@ -41,8 +42,9 @@ EVENT_CAUSES = (
     "possible_spoofing",
     "behavioral_anomaly",
 )
-EVENT_WEIGHTS = (0.17, 0.22, 0.17, 0.08, 0.2, 0.16)
+EVENT_WEIGHTS = (0.15, 0.21, 0.15, 0.16, 0.15, 0.18)
 EVENTS_PER_SCENE = ((0, 1, 2, 3), (0.34, 0.22, 0.24, 0.2))
+BEHAVIOR_PLAN = (("incursion", "speeding", "deviate"), (0.4, 0.35, 0.25))
 EVENT_COLUMNS = [
     "event_id",
     "scene_id",
@@ -315,8 +317,13 @@ def plan_event(
 
     classes = points.groupby("track_id")["asset_class"].first()
     if cause == "behavioral_anomaly":
+        mode = str(rng.choice(BEHAVIOR_PLAN[0], p=BEHAVIOR_PLAN[1]))
+        if mode == "speeding":
+            plan = _plan_speeding(points, tracks, classes, slot, rng, layers)
+            if plan is not None:
+                return plan
         cand = [t for t in tracks if classes[t] in NO_RUNWAY]
-        if cand:
+        if mode == "incursion" and cand:
             sub = points[
                 points["track_id"].isin(cand)
                 & (points["t"] >= lo)
@@ -325,7 +332,7 @@ def plan_event(
             if len(sub):
                 d = _runway_distance(sub, layers)
                 k = int(np.argmin(d))
-                if d[k] < 500.0 and rng.random() < 0.6:
+                if d[k] < 500.0:
                     tid = sub["track_id"].iloc[k]
                     onset = float(sub["t"].iloc[k])
                     v = 0.7 * float(
@@ -360,6 +367,55 @@ def plan_event(
         "duration_s": dur,
         "track_ids": [tid],
         "params": {},
+    }
+
+
+def _plan_speeding(points, tracks, classes, slot, rng, layers) -> dict | None:
+    """A vehicle drives a speed-limited road above the limit, still under its class max."""
+    lo, hi = slot
+    vmax = envelopes()["max_ground_speed_mps"]
+    r0, r1 = params.SPEEDING_RATIO
+    margin = params.SPEEDING_CLASS_MARGIN
+    sub = points[
+        points["track_id"].isin(tracks)
+        & (points["domain"] == "vehicle")
+        & (points["t"] >= lo)
+        & (points["t"] < hi - 30.0)
+    ].sort_values(["track_id", "t"], kind="stable")
+    if not len(sub):
+        return None
+    lim = zone_speed_limit(
+        layers, sub["label_true_lat"].to_numpy(), sub["label_true_lon"].to_numpy()
+    )
+    cmax = vmax.reindex(sub["asset_class"]).to_numpy()
+    ok = r0 * lim < margin * cmax  # NaN limit -> False
+    x, y = _true_xy(sub, layers)
+    tid = sub["track_id"].to_numpy()
+    runs = []
+    # contiguous stretches inside one speed limit, per track
+    key = np.where(ok, lim, np.nan)
+    brk = np.concatenate([[True], (tid[1:] != tid[:-1]) | (key[1:] != key[:-1])])
+    for a, b in pairwise(list(np.flatnonzero(brk)) + [len(sub)]):
+        if not ok[a] or b - a < 3:
+            continue
+        length = float(np.hypot(np.diff(x[a:b]), np.diff(y[a:b])).sum())
+        v_hi = min(r1 * lim[a], margin * cmax[a], length / params.SPEEDING_MIN_S)
+        if v_hi > r0 * lim[a]:
+            runs.append((a, b - 1, lim[a], v_hi))
+    if not runs:
+        return None
+    a, b, limit, v_hi = runs[int(rng.integers(len(runs)))]
+    t = sub["t"].to_numpy()
+    return {
+        "cause": "behavioral_anomaly",
+        "onset_t": float(t[a]),
+        "duration_s": float(t[b] - t[a]),
+        "track_ids": [str(tid[a])],
+        "params": {
+            "mode": "speeding",
+            "speed_mps": float(rng.uniform(r0 * limit, v_hi)),
+            "zone_limit_mps": float(limit),
+        },
     }
 
 

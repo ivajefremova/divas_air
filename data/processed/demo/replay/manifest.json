@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0",
+  "airport": "LIRF",
+  "t_start": 1839998800.0,
+  "t_end": 1839999400.0,
+  "step_s": 5,
+  "n_frames": 121,
+  "frames_file": "frames.jsonl",
+  "events": [
+    {
+      "event_id": "ev_phantom",
+      "kind": "phantom_incursion",
+      "title": "Phantom runway incursion: a tractor's position jumps onto the runway",
+      "t_start": 1839998865.0,
+      "t_end": 1839998925.0,
+      "track_ids": [
+        "demo:s42v00:0"
+      ]
+    },
+    {
+      "event_id": "ev_real",
+      "kind": "real_incursion",
+      "title": "Real runway incursion: a fuel truck drives onto the runway",
+      "t_start": 1839999020.354504,
+      "t_end": 1839999107.2112126,
+      "track_ids": [
+        "demo:s42v01:0"
+      ]
+    },
+    {
+      "event_id": "ev_sector",
+      "kind": "sector_interference",
+      "title": "Sector GNSS interference on the apron",
+      "t_start": 1839999220.0,
+      "t_end": 1839999370.0,
+      "track_ids": [
+        "demo:s42v02:0",
+        "demo:s42v04:0",
+        "demo:s42v05:0",
+        "demo:s42v06:0",
+        "demo:s42v07:0",
+        "demo:s42v08:0",
+        "demo:s42v10:0",
+        "demo:s42v11:0",
+        "demo:s42v15:0",
+        "demo:s42v18:0",
+        "demo:s42v19:0",
+        "demo:s42v22:0",
+        "demo:4a5d0b:0"
+      ]
+    }
+  ]
+}

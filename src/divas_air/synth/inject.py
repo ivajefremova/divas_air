@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import shapely
 from pyproj import Geod
+from scipy.ndimage import uniform_filter1d
 
 from divas_air import params, schema
 from divas_air.geo import gnss, to_metric, to_wgs84
@@ -21,7 +22,7 @@ from divas_air.synth.motion import SPEED_FLOOR
 _GEOD = Geod(ellps="WGS84")
 SIGMA0 = params.GNSS_OPEN_SIGMA_M
 TECH_MODES = ("freeze", "jump", "duplicate_t", "out_of_order", "loss")
-BEHAVIOR_MODES = ("deviate", "incursion")
+BEHAVIOR_MODES = ("deviate", "incursion", "speeding")
 
 
 def _offset(lat, lon, north, east):
@@ -60,6 +61,22 @@ def add_labels(points: pd.DataFrame, params_: dict | None = None) -> pd.DataFram
     if "base_track_id" not in out.columns:
         out["base_track_id"] = p.get("base_track_id", out["track_id"])
     return out
+
+
+def zone_speed_limit(layers, lat, lon) -> np.ndarray:
+    """Lowest zone speed limit (m/s) containing each position; NaN where no zone has one."""
+    x, y = to_metric(np.asarray(lon, dtype="float64"), np.asarray(lat, dtype="float64"))
+    z = layers.zones.dropna(subset=["speed_limit_mps"])
+    lim = np.full(len(x), np.nan)
+    for geom, v in zip(z.geometry, z["speed_limit_mps"], strict=True):
+        lim = np.where(shapely.contains_xy(geom, x, y), np.fmin(lim, v), lim)
+    return lim
+
+
+def _class_turn_rate(asset_class: str) -> float:
+    from divas_air.synth.motion import envelopes
+
+    return float(envelopes().loc[asset_class, "max_turn_rate_dps"])
 
 
 def _class_speed(asset_class: str) -> float:
@@ -301,6 +318,18 @@ def _behavioral_anomaly(tr, m, onset, t_end, rng, p, layers=None):
         new_lon = (
             lon0 + (p["target_lon"] - lon0) * u_in + (lon1 - p["target_lon"]) * u_out
         )
+    elif mode == "speeding":
+        new_lat, new_lon, v_true = _speeding_path(tr, idx, onset, t_end, p)
+        # labeled where the true speed is over the limit of the zone the asset is in
+        if layers is not None:
+            lim = zone_speed_limit(layers, new_lat, new_lon)
+        else:
+            lim = np.full(len(idx), p["zone_limit_mps"])
+        over = np.zeros(len(m), dtype=bool)
+        over[idx] = v_true > lim
+        if over.any():
+            p["entry_t"] = float(tr.t[over][0])
+        m = over
     else:
         raise ValueError(f"unknown behavioral_anomaly mode {mode!r}")
     tr.label_true_lat[idx], tr.label_true_lon[idx] = new_lat, new_lon
@@ -323,6 +352,50 @@ def _behavioral_anomaly(tr, m, onset, t_end, rng, p, layers=None):
         p["entry_t"] = float(t[first[0]]) if len(first) else float(onset)
         m = m & (tr.t >= p["entry_t"])
     tr.label |= m
+
+
+def _speeding_path(tr, idx, onset, t_end, p):
+    """Same route, driven at `speed_mps`: it runs ahead of the original, then waits for it.
+
+    Accelerates and brakes at half the class limit and slows in turns to stay
+    inside the class turn rate, so only the speed-over-limit is abnormal.
+    Returns the new true (lat, lon) and true speed at the points `idx`.
+    """
+    from divas_air.synth.motion import envelopes
+
+    env = envelopes().loc[tr.asset_class]
+    a = 0.5 * float(env["max_accel_mps2"])
+    v_target = float(p["speed_mps"])
+    x, y = to_metric(tr.label_true_lon, tr.label_true_lat)
+    s_all = np.concatenate([[0.0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
+    s0 = s_all[idx[0]]
+    length = float(np.interp(t_end, tr.t, s_all)) - s0
+    if length < 1.0:
+        lat, lon = tr.label_true_lat[idx], tr.label_true_lon[idx]
+        return lat, lon, np.zeros(len(idx))
+    # dense path along the original route, 1 m spacing
+    sd = np.linspace(0.0, length, max(int(np.ceil(length)) + 1, 3))
+    xd, yd = np.interp(s0 + sd, s_all, x), np.interp(s0 + sd, s_all, y)
+    heading = np.unwrap(np.arctan2(np.gradient(yd), np.gradient(xd)))
+    kappa = uniform_filter1d(np.abs(np.gradient(heading, sd)), 9, mode="nearest")
+    turn = 0.6 * np.radians(_class_turn_rate(tr.asset_class))
+    v_lim = np.minimum(v_target, turn / np.maximum(kappa, 1e-6))
+    v_lim[0] = min(float(tr.gs_mps[idx[0]]), v_lim[0])  # starts at its current speed
+    v_lim[-1] = 0.0  # stops where the original will be at t_end
+    fwd = 2 * a * sd + np.minimum.accumulate(v_lim**2 - 2 * a * sd)
+    sb = (sd[-1] - sd)[::-1]
+    bwd = (2 * a * sb + np.minimum.accumulate(v_lim[::-1] ** 2 - 2 * a * sb))[::-1]
+    v = np.sqrt(np.maximum(np.minimum(fwd, bwd), 0.0))
+    dt = 2 * np.diff(sd) / np.maximum(v[:-1] + v[1:], SPEED_FLOOR)
+    td = onset + np.concatenate([[0.0], np.cumsum(dt)])
+    t = tr.t[idx]
+    s_new = np.interp(t, td, sd)  # holds at the end once there
+    # never behind the original, so the path joins it again at t_end
+    s_new = np.maximum(s_new, s_all[idx] - s0)
+    v_true = np.where(t < td[-1], np.interp(s_new, sd, v), 0.0)
+    lon, lat = to_wgs84(np.interp(s_new, sd, xd), np.interp(s_new, sd, yd))
+    p["run_m"] = round(length, 1)
+    return np.asarray(lat), np.asarray(lon), v_true
 
 
 _HANDLERS = {

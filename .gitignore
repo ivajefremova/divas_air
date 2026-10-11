@@ -31,3 +31,5 @@ data/processed/points/
 data/processed/features/
 data/processed/fleet/*_cells.parquet
 data/processed/verdicts/
+# ADR dataset: no redistribution (docs/ADR_DATASET.md); points/ already covers adr_mock.parquet
+data/processed/adr/

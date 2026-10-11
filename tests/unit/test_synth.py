@@ -6,7 +6,7 @@ import pytest
 
 from divas_air import params, schema
 from divas_air.synth import inject
-from divas_air.synth.inject import apply_event
+from divas_air.synth.inject import add_labels, apply_event
 from divas_air.synth.motion import envelopes, sample_times, speed_profile
 from tests.helpers import LAT0, T0, error_m, make_track
 
@@ -197,6 +197,35 @@ def test_incursion_reaches_target_and_labels_from_zone_entry():
     assert error_m(truth).max() < 2.0
     # stopped at the target: gs is exactly 0, as on clean stopped assets
     assert (held["gs_mps"] == 0.0).all()
+
+
+def test_speeding_runs_over_limit_under_class_max_then_rejoins():
+    # follow_me on a straight road at 7 m/s; the zone limit is 8.3 m/s
+    pts = make_track(track_id=A, n=300, asset_class="follow_me", speed_mps=7.0)
+    pts = add_labels(pts)
+    p = {"mode": "speeding", "speed_mps": 12.0, "zone_limit_mps": 8.3}
+    out, info = apply_event(
+        pts,
+        "behavioral_anomaly",
+        onset_t=ONSET,
+        duration_s=120.0,
+        track_ids=[A],
+        params=p,
+    )
+    schema.validate(out, labeled=True)
+    a = out.sort_values("seq")
+    lab = a[a["label_cause"] == "behavioral_anomaly"]
+    assert len(lab) >= 30
+    assert lab["gs_mps"].max() < envelopes().loc["follow_me", "max_ground_speed_mps"]
+    assert lab["gs_mps"].median() > 1.2 * 8.3
+    # same reported-vs-true error as before: clean GNSS, only the motion changed
+    assert error_m(a).max() < 1e-3
+    # untouched before onset and after the event
+    keep = (pts["t"] < ONSET) | (pts["t"] > ONSET + 121.0)
+    np.testing.assert_array_equal(
+        a.loc[keep.to_numpy(), "lat"].to_numpy(), pts.loc[keep, "lat"].to_numpy()
+    )
+    assert info["t_onset"] >= ONSET
 
 
 def test_inject_without_selection_raises():
