@@ -41,13 +41,19 @@ class Grid:
         return len(self.t_end)
 
 
-def build_grid(code: np.ndarray, t: np.ndarray) -> Grid:
-    """`code` (track code, 0..K-1, non-decreasing) and `t` sorted within each track."""
+def build_grid(code: np.ndarray, t: np.ndarray, until: float | None = None) -> Grid:
+    """`code` (track code, 0..K-1, non-decreasing) and `t` sorted within each track.
+
+    `until`: extend every track's grid to the first grid time at or after it (the
+    online engine's clock), so a track silent for more than a stride still gets
+    its window at the current time. None: grid ends at each track's last fix."""
     stride, width = float(config.STRIDE_S), float(config.WINDOW_S)
     starts = np.flatnonzero(np.r_[True, code[1:] != code[:-1]])
     ends = np.r_[starts[1:], len(code)]
     g_first = np.ceil(t[starts] / stride) * stride
     g_last = np.ceil(t[ends - 1] / stride) * stride
+    if until is not None:
+        g_last = np.maximum(g_last, np.ceil(until / stride) * stride)
     n_w = np.rint((g_last - g_first) / stride).astype(np.int64) + 1
     first = np.r_[0, np.cumsum(n_w)[:-1]]
     w_track = np.repeat(np.arange(len(starts)), n_w)

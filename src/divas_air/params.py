@@ -140,6 +140,13 @@ FORECAST_HORIZONS_S = (30, 60)
 # --- API (specs/06) ---------------------------------------------------------
 REPLAY_STEP_S = 5  # = STRIDE_S
 HISTORY_S = 300  # integrity history shown on the verdict card
+# Online engine: points kept per track. Features are recomputed over them at every
+# step, so the engine matches the batch pipeline as long as a track is shorter than
+# this (dwell timers and per-track baselines start at the oldest kept fix).
+ENGINE_KEEP_S = 900.0
+ENGINE_MAX_CATCHUP_STEPS = (
+    720  # POST /tracks steps at most this many grid times (1 h) per call
+)
 
 # --- map layers (specs/02) --------------------------------------------------
 # Half widths used to turn OSM centerlines and points into zone polygons.

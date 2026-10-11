@@ -44,12 +44,17 @@ ACTION_TEXT = {
 # --- state machines ------------------------------------------------------------
 
 
-def smooth_and_state(integrity_raw: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    """One track in time order -> (smoothed integrity, trust_state per window)."""
+def smooth_and_state(
+    integrity_raw: np.ndarray, init: tuple[float, str] | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """One track in time order -> (smoothed integrity, trust_state per window).
+
+    init: (smoothed integrity, trust_state) of the window before the first one,
+    so the online engine can continue a track step by step."""
     raw = np.asarray(integrity_raw, dtype="float64")
     s = np.empty(len(raw))
     st = np.empty(len(raw), dtype=object)
-    prev, state = None, None
+    prev, state = (None, None) if init is None else init
     for k, r in enumerate(raw.tolist()):
         if prev is None:
             cur = r
@@ -73,20 +78,26 @@ def _next_trust(state: str | None, s: float) -> str:
     return "caution" if s < params.CAUTION_ENTER else "trusted"
 
 
-def normality_state(normality: np.ndarray) -> np.ndarray:
-    """One track in time order: abnormal below ABNORMAL_ENTER until above ABNORMAL_EXIT."""
+def normality_state(normality: np.ndarray, init: str | None = None) -> np.ndarray:
+    """One track in time order: abnormal below ABNORMAL_ENTER until above ABNORMAL_EXIT.
+
+    init: normality_state of the window before the first one."""
     out = np.empty(len(normality), dtype=object)
-    abnormal = False
+    abnormal = init == "abnormal"
     for k, n in enumerate(np.asarray(normality, dtype="float64").tolist()):
         abnormal = n <= params.ABNORMAL_EXIT if abnormal else n < params.ABNORMAL_ENTER
         out[k] = "abnormal" if abnormal else "expected"
     return out
 
 
-def _per_track(values: np.ndarray, starts: np.ndarray, fn) -> list[np.ndarray]:
-    """Apply `fn` to each track slice of `values` (rows grouped by track, time-sorted)."""
+def _per_track(values: np.ndarray, starts: np.ndarray, fn, inits=None) -> list:
+    """Apply `fn` to each track slice of `values` (rows grouped by track, time-sorted).
+
+    inits: one initial state per track, passed as fn's second argument."""
     ends = np.r_[starts[1:], len(values)]
-    return [fn(values[s:e]) for s, e in zip(starts, ends, strict=True)]
+    if inits is None:
+        return [fn(values[s:e]) for s, e in zip(starts, ends, strict=True)]
+    return [fn(values[s:e], i) for s, e, i in zip(starts, ends, inits, strict=True)]
 
 
 # --- confidence, severity, cause ---------------------------------------------------
@@ -276,8 +287,13 @@ def assemble(
     bundle,
     fleet: pd.DataFrame | None = None,
     area_alerts: pd.DataFrame | None = None,
+    init: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
-    """Flat verdict table (specs/00_contracts.md section 6), one row per input row, input order."""
+    """Flat verdict table (specs/00_contracts.md section 6), one row per input row, input order.
+
+    init: per-track state before the first input row (index track_id; columns
+    integrity, trust_state, normality_state), for the online engine. Tracks
+    missing from it start fresh."""
     f = features.reset_index(drop=True)
     if fleet is not None:
         f = f.drop(columns=[c for c in registry.FLEET_COLUMNS if c in f]).merge(
@@ -306,11 +322,19 @@ def assemble(
     starts = (
         np.flatnonzero(np.r_[True, tid[1:] != tid[:-1]]) if n else np.array([], int)
     )
-    sm = _per_track(integrity_raw, starts, smooth_and_state)
+    i_init = n_init = None
+    if init is not None:
+        st = init.reindex(tid[starts])
+        i_init = [
+            None if pd.isna(a) else (float(a), b)
+            for a, b in zip(st["integrity"], st["trust_state"], strict=True)
+        ]
+        n_init = [None if pd.isna(x) else x for x in st["normality_state"]]
+    sm = _per_track(integrity_raw, starts, smooth_and_state, i_init)
     integrity = np.concatenate([a for a, _ in sm]) if n else np.empty(0)
     trust = np.concatenate([b for _, b in sm]) if n else np.empty(0, object)
     norm_st = (
-        np.concatenate(_per_track(normality, starts, normality_state))
+        np.concatenate(_per_track(normality, starts, normality_state, n_init))
         if n
         else np.empty(0, object)
     )

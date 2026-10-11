@@ -29,16 +29,19 @@ CHUNK_FIXES = 400_000  # tracks are processed in chunks of about this many fixes
 
 
 def compute_features(
-    points: pd.DataFrame, layers: MapLayers | None = None
+    points: pd.DataFrame, layers: MapLayers | None = None, *, until: float | None = None
 ) -> pd.DataFrame:
     """Per-window features for every track in `points`. layers=None: spatial and
-    contextual features and the aux_zone_* columns are NaN/None; everything else is computed."""
+    contextual features and the aux_zone_* columns are NaN/None; everything else is computed.
+
+    until: also emit windows up to this grid time for tracks whose last fix is
+    earlier (the online engine; points must have t <= until)."""
     labeled = set(schema.LABEL_COLUMNS) <= set(points.columns)
     pts = _prepare(points)
     if pts.empty:
         cols = OUTPUT_COLUMNS + (list(schema.WINDOW_LABEL_COLUMNS) if labeled else [])
         return pd.DataFrame(columns=cols)
-    parts = [_chunk_features(c, layers, labeled) for c in _chunks(pts)]
+    parts = [_chunk_features(c, layers, labeled, until) for c in _chunks(pts)]
     return pd.concat(parts, ignore_index=True)
 
 
@@ -121,9 +124,11 @@ def _arrays(p: pd.DataFrame, layers=None) -> dict[str, np.ndarray]:
     }
 
 
-def _chunk_features(p: pd.DataFrame, layers, labeled: bool) -> pd.DataFrame:
+def _chunk_features(
+    p: pd.DataFrame, layers, labeled: bool, until: float | None = None
+) -> pd.DataFrame:
     a = _arrays(p, layers)
-    g = build_grid(a["code"], a["t"])
+    g = build_grid(a["code"], a["t"], until)
     track_start = np.repeat(
         np.flatnonzero(np.r_[True, a["code"][1:] != a["code"][:-1]]),
         np.bincount(a["code"]),

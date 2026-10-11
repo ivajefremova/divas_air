@@ -142,12 +142,17 @@ def live_halos(
 
 
 def forecast_paths(
-    verdict_rows: pd.DataFrame, halos: list[dict], t: float
+    verdict_rows: pd.DataFrame,
+    halos: list[dict],
+    t: float,
+    shapes: list[shapely.Geometry] | None = None,
 ) -> list[dict]:
     """Forecast features for tracks whose constant-velocity path enters a halo they are not in.
 
     `verdict_rows`: one row per track with track_id, aux_lat, aux_lon, aux_gs_mps,
     aux_track_deg. Paths are sampled every STRIDE_S up to max(FORECAST_HORIZONS_S).
+    `shapes`: the halos' geometries, already parsed and prepared (the online engine
+    parses the static halos once); None parses them here.
     """
     if len(verdict_rows) == 0 or not halos:
         return []
@@ -177,9 +182,10 @@ def forecast_paths(
     )
     plon, plat = np.asarray(lon2).reshape(n, s), np.asarray(lat2).reshape(n, s)
     best: dict[int, tuple[float, dict]] = {}
-    for halo in halos:
-        g = shapely.geometry.shape(halo["geometry"])
-        shapely.prepare(g)
+    if shapes is None:
+        shapes = [shapely.geometry.shape(h["geometry"]) for h in halos]
+        shapely.prepare(shapes)
+    for halo, g in zip(halos, shapes, strict=True):
         inside = shapely.contains_xy(g, plon, plat)  # n x s
         enters = ~inside[:, 0] & inside[:, 1:].any(axis=1)
         for i in np.flatnonzero(enters):
