@@ -272,7 +272,7 @@ function styleMarkers(frame) {
   for (const v of frame.verdicts) {
     present.add(v.track_id);
     const m = markerFor(v);
-    const sel = S.sel?.kind === 'track' && S.sel.id === v.track_id;
+    const sel = (S.sel?.kind === 'track' && S.sel.id === v.track_id) || S.sel2 === v.track_id;
     m.el.className = ['trk', v.domain, `c-${v.asset_class}`, `s-${v.trust_state}`, v.confidence_level === 'low' ? 'conf-low' : '',
       causes.has(v.track_id) ? 'cause' : '', sel ? 'sel' : '', shown(v) ? '' : 'hidden'].join(' ');
     m.tag.textContent = nameOf(v);
@@ -476,9 +476,10 @@ function alertList(items) {
 const barColor = (x) => (x < 40 ? COLORS.red : x < 70 ? COLORS.amber : '#9aa3bd');
 const bar = (label, x, major) => `<div class="dim${major ? ' major' : ''}"><span>${label}</span><span class="track"><span class="fill" style="width:${x}%;background:${barColor(x)}"></span></span><span class="val">${Math.round(x)} / 100</span></div>`;
 
-function dashboard(id) {
+function dashboard(id, second = false) {
   const v = S.byTrack[S.idx].get(id);
-  const head = '<button class="p-close" data-close aria-label="Close">×</button><button class="back" data-back>‹ All alerts</button>';
+  const head = second ? '<button class="p-close" data-close2 aria-label="Close">×</button>'
+    : '<button class="p-close" data-close aria-label="Close">×</button><button class="back" data-back>‹ All alerts</button>';
   if (!v) return `${head}<div class="empty">No position for this vehicle right now.</div>`;
   const q = quad(v), p = v.position;
   const conf = { low: 1, medium: 2, high: 3 }[v.confidence_level];
@@ -504,7 +505,7 @@ function sparkline(id) {
   const from = Math.max(0, S.idx - HISTORY_FRAMES), pts = [];
   for (let i = from; i <= S.idx; i++) { const v = S.byTrack[i].get(id); if (v) pts.push([i, v.integrity]); }
   if (pts.length < 2) return '<svg class="spark"></svg>';
-  const W = 340, H = 56, x = (i) => ((i - from) / Math.max(1, S.idx - from)) * (W - 6) + 3, y = (val) => H - 3 - (val / 100) * (H - 6);
+  const W = 340, H = 44, x = (i) => ((i - from) / Math.max(1, S.idx - from)) * (W - 6) + 3, y = (val) => H - 3 - (val / 100) * (H - 6);
   const [li, lv] = pts[pts.length - 1];
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${y(40)}" y2="${y(40)}" stroke="#f3d3d4" stroke-dasharray="4 4"/>
     <polyline points="${pts.map(([i, val]) => `${x(i).toFixed(1)},${y(val).toFixed(1)}`).join(' ')}" fill="none" stroke="${COLORS.ink}" stroke-width="2" vector-effect="non-scaling-stroke"/>
@@ -514,8 +515,8 @@ function sparkline(id) {
 // ---- impact card: the vehicles hit by an area event -------------------------------------------------
 
 const NEAR_M = 400;
-function openImpact(areaId, trackId) { S.impact = areaId ? { area: areaId } : { near: trackId }; renderImpact(); }
-function closeImpact() { S.impact = null; $('impact').hidden = true; }
+function openImpact(areaId, trackId) { S.impact = areaId ? { area: areaId } : { near: trackId }; document.body.classList.add('impact-open'); renderImpact(); }
+function closeImpact() { S.impact = null; $('impact').hidden = true; document.body.classList.remove('impact-open'); }
 function renderImpact() {
   const box = $('impact');
   if (!S.impact) { box.hidden = true; return; }
@@ -535,12 +536,30 @@ function renderImpact() {
     members.map((v) => `<button class="imp" data-track="${esc(v.track_id)}">${esc(nameOf(v))}<b>${Math.round(v.confidence * 100)} %</b></button>`).join('');
 }
 $('impact-close').addEventListener('click', closeImpact);
-$('impact-body').addEventListener('click', (e) => { const b = e.target.closest('[data-track]'); if (b) select({ kind: 'track', id: b.dataset.track }); });
+$('impact-body').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-track]');
+  if (!b) return;
+  if (S.sel?.kind === 'track' && S.sel.id !== b.dataset.track) { S.sel2 = b.dataset.track; renderPanel2(); styleMarkers(S.frames[S.idx]); }
+  else select({ kind: 'track', id: b.dataset.track });
+});
+
+function renderPanel2() {
+  const box = $('panel2');
+  box.hidden = !S.sel2;
+  if (S.sel2) $('panel2-body').innerHTML = dashboard(S.sel2, true);
+}
+$('panel2-body').addEventListener('click', (e) => {
+  if (e.target.closest('[data-close2]')) { S.sel2 = null; renderPanel2(); return styleMarkers(S.frames[S.idx]); }
+  const imp = e.target.closest('[data-impact]');
+  if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
+});
 
 // ---- selection --------------------------------------------------------------------------------
 
 function select(sel) {
   S.sel = sel;
+  S.sel2 = null;
+  renderPanel2();
   if (sel) openPanel(true);
   styleMarkers(S.frames[S.idx]);
   renderPanel();
@@ -555,7 +574,7 @@ function openPanel(open) {
 
 $('panel-tab').addEventListener('click', () => openPanel(!S.panelOpen));
 $('panel-body').addEventListener('click', (e) => {
-  if (e.target.closest('[data-close]')) { S.sel = null; return openPanel(false); }
+  if (e.target.closest('[data-close]')) { S.sel = null; S.sel2 = null; renderPanel2(); return openPanel(false); }
   if (e.target.closest('[data-back]')) return select(null);
   const imp = e.target.closest('[data-impact]');
   if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
@@ -597,14 +616,21 @@ function renderDemo() {
   $('demo-source').textContent = S.source;
 }
 
-const storyStart = (sc) => (['real_scene', 'normal_ops'].includes(sc.id) ? sc.t_start : Math.max(sc.t_start, sc.onset_t - 10));
+// A demo starts a few seconds before its banner fires: calm first, but no long wait.
+const LEAD_S = 4;
+function storyStart(sc) {
+  if (['real_scene', 'normal_ops'].includes(sc.id)) return sc.t_start;
+  const M = S.manifest, i0 = Math.max(0, Math.floor((sc.onset_t - M.t_start) / M.step_s) - 2);
+  const k = S.frames.findIndex((f, i) => i >= i0 && alertsAt(f).some(headline));  // same rule as the banner
+  return Math.max(M.t_start, (k >= 0 ? S.frames[k].t : sc.onset_t) - LEAD_S);
+}
 
 async function openScenario(sc, overview = true) {
   Object.assign(S, await loadBundle(sc));
   S.cur = sc;
   S.markers.forEach((m) => m.marker.remove());  // track ids repeat across scenarios with other vehicle types
   S.markers.clear();
-  S.sel = null; S.notified = null; S.top = null;
+  S.sel = null; S.sel2 = null; S.notified = null; S.top = null;
   closeImpact();
   openPanel(false);
   S.popup?.remove();
@@ -639,6 +665,7 @@ function onFrame() {
   drawRisk(frame);
   drawTrails();
   renderPanel();
+  renderPanel2();
   renderImpact();
   renderNotify();
   $('clock').textContent = `${hhmmss(frame.t)} UTC`;
