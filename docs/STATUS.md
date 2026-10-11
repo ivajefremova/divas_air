@@ -10,7 +10,7 @@ One row per module. Update it when you start and when you finish a module: state
 | 3 | Features | done | 2026-10-10 | Over-limit share on clean `fco` (windows with >= 4 fixes and any envelope ratio > 1.5): **0.058 %** (target < 0.1 %; P0 only 0.039 %); held-out days 0.063 %. Runtime: fco 1.1 M points in 31 s, all five sources and calibration in 10 min (synthetic 550 s). Windows: fco 917,001, baltic 410,727, control 2,182,132, synthetic 2,870,487, demo 3,751. Degraded-majority windows: baltic 10.9 %, control 0.07 %, fco 0.03 %. 72 thresholds, 26 fitted | Only depend on these after reading the decisions below: 5 interpretations of the spec keep fco under 0.1 %. All-NaN: `kin_accel_imp_ratio_max` (P1, held back), `sig_alt_div_*` (no `alt_geom_m`), `kin_heading_course_diff_max` on real data (no `heading_deg`). Vehicle taus are fitted on all synthetic scenes: rerun `--calibrate` after module 4 writes `splits.json` |
 | 4 | Models | trained (retrained by module 5 with fleet features) | 2026-10-11 | Test split, 560,546 windows: integrity pass 2 AUROC **0.9891** / AUPRC 0.9578 (pass 1 0.9894 / 0.9583; naive baseline 0.8255 / 0.1302); ECE 0.041 -> 0.0006 after isotonic; cause macro-F1 **0.528** (0.508 without fleet; majority 0.141); behavioral median integrity 99.9, abnormal share 0.49; spoofing median normality 66.7. Trees p1 314 / p2 356 / cause 497. `make accept N=4` 20 pass | The blocker below was resolved by the human (thresholds refit on train scenes, commit f400943). The acceptance-verifier has not reviewed module 4 since training. Spoofing median normality 66.7 and behavioral abnormal share 0.49: check them against spec 04 targets |
 | 5 | Fleet | done | 2026-10-11 | Baltic: **89 red of 109** qualifying cells (82 %; reference 82 / 109; GPSJam's (bad-1)/total formula on our cells gives exactly 82 / 109). Control: **0 of 172** cells above 2 % (reference 0 / 172). Test scenes: interference windows recognized 99.4 % (cause 99.4 %, area alert 64.7 %; n = 11,962; target >= 50 %); technical_error windows attributed to interference 0.0 %, with an area alert 0.6 % (n = 960; target < 30 %). Pipeline, all 5 sources: 6 min 31 s (synthetic 208 s). Retrain with fleet: 4 min 43 s | Forecast not wired into the flat table (no column); module 6 calls `halos.forecast_paths`. Demo phantom fault reads as `possible_spoofing` (module 4). Apron baseline is all-floor, so the noisy-cell protection is inactive. Generator places interference at the densest disk (module 2). See the module 5 notes |
-| 6 | API | not started | | step latency; seconds to detect each demo event | |
+| 6 | API | blocked (13 of 14 acceptance tests pass) | 2026-10-11 | Step at 200 tracks: **0.50-0.56 s** with a 60-75 s buffer (the acceptance case); 2.4 / 5.1 / 7.3 s with 300 / 600 / 900 s buffers (verifier). Engine vs pipeline on demo: **3,751 / 3,751** windows identical (integrity_raw, trust_state, cause, area_alert_id). Detect: ev_phantom `data_fault` + `verify_radio` + critical at **+5 s** but cause `possible_spoofing`; ev_real `real_event` + `act_now` at **+4.6 s**, never untrusted; ev_sector 7 members share one alert + live halo at **+5 s**. Quiet periods: 837 verdicts, 100 % trusted, 0 critical untrusted. Replay 121 frames, 5.6 MB, 47 s to build, byte-identical reruns | **Blocker (module 4):** phantom cause reads `possible_spoofing` in batch and engine alike; `test_phantom_incursion_reads_as_a_data_fault` fails. Phantom reads `act_now` at +45 to +60 s. Latency fails req. 4 at steady state. Red-team route (req. 14) not built. See module 6 notes |
 | 8 | Evaluation | not started | | false alarms per 1,000 track-minutes; median time to detect | |
 
 ## Notes
@@ -279,3 +279,79 @@ Details, rules and every assumption: `docs/ADR_DATASET.md` section 7. Package `s
 - Synthetic recall: frozen 0.985, jump 0.741, multipath 0.859, zone violation 0.305, overspeed 0.252, fix_loss 0.057, drift 0. Precision is low (0.003 to 0.20; frozen 1.0) because the generator's noise floor is about 3x ADR's.
 - Class map: fork_lift -> baggage_tractor, cargo_truck and gpu_unit -> bus, works_vehicle -> follow_me (approx). adr_mock was re-ingested.
 - Open: 105 of 603 tracks carry runway_incursion (handling group in ADR's runway critical area). This rests on our group assumption; check it against "most tracks are regular".
+
+### Module 6 (engine, Trust API, replay bundle), 2026-10-11
+
+Checks:
+- `make contracts`: 13 pass.
+- `make unit`: 143 pass.
+- `make accept N=6`: 13 pass, **1 fail** (`test_phantom_incursion_reads_as_a_data_fault`).
+- Module 6 files are ruff-clean. `make lint` fails only on the pre-existing files.
+- The acceptance-verifier reviewed the module. It confirmed exact parity, that no score is implemented twice, and a deterministic bundle. Its verdict is "not ready" because of the blocker below.
+
+**What exists**
+- `divas_air.engine.TrustEngine`: `from_disk`, `ingest`, `step`, `risk_zones`, `latest`, `history`, `live_ids`.
+- `divas_air.api.app:app`: `POST /tracks`, `GET /verdicts` (`?track_id=`, `&history_s=`), `GET /risk-zones`, `GET /health`. CORS is open.
+- `python -m divas_air.api.replay` writes `data/processed/demo/replay/{manifest.json,frames.jsonl}` (committed).
+
+**How the engine works.** At each grid time it recomputes the module 3 features over each active track's kept points (`params.ENGINE_KEEP_S` = 900 s) and keeps the window at `now`. Then it runs, in order:
+- `pipeline.degraded_flags`;
+- `fleet.cells_from_windows`, `fleet_features` and `alert_members` over the trailing `bin_s` of windows;
+- `fleet.area_alerts` over the flagged cells since the last flag-free silence of `bin_s` or more, so alert ids match the batch;
+- `verdict.assemble` with the carried per-track state.
+
+Additive hooks in other modules' files (the defaults keep the old behavior; the verifier checked that batch outputs are unchanged):
+- `compute_features(..., until=)`: a window at the clock for a track silent for more than a stride.
+- `assemble(..., init=)`, `smooth_and_state(init)`, `normality_state(init)`: smoothing and both state machines continue across steps.
+- `halos.forecast_paths(..., shapes=)`: the static halos are parsed once (parsing them took about 2 s per step).
+
+#### Blocker (module 4 owns the fix)
+
+The `ev_phantom` cause is `possible_spoofing` (p 0.91 / 0.86 / 0.84 in the first windows; `p_technical_error` 0.08 to 0.15). The batch `verdicts/demo.parquet` gives the same cause, so the engine is not the cause. The label is correct: the phantom is a held 59 m jump, which fits spec 02's technical_error.
+
+TreeSHAP, spoofing minus technical_error, at onset +5 s:
+- `kin_speed_resid_mean` +1.83: about 5 straddling pairs out of 30 give a mean of 1.9 m/s, which looks like spoofing's persistent drift;
+- `spa_route_dist_max_m` +0.76;
+- `kin_speed_resid_max` (11.8 m/s) pushes toward technical_error at -0.76, but loses.
+
+A larger demo jump does not fix it. Re-scoring the same phantom at 150 / 300 / 600 / 1000 m still gives spoofing in the first window every time. Training jumps are 125 to 2,000 m. On the test split, technical_error recall is 675 / 960, with 100 windows read as spoofing.
+
+Spec 06 requirement 12 forbids patching the bundle. Possible fixes:
+1. Module 3: a "step vs ramp" feature, for example the max residual over the mean residual, or the displacement over the window against its path length.
+2. Module 2: more held jumps on parked assets, including 50 to 125 m.
+3. Then retrain (`python -m divas_air.models.train`), `python -m divas_air.pipeline --source demo`, `python -m divas_air.api.replay`, `make accept N=4,5,6`.
+
+#### Demo risks found by the verifier (not covered by tests)
+
+1. **Phantom reads "act now" from onset +45 to +60 s** (modules 3/4).
+   - Once the jump leaves the 30 s window, integrity_raw returns to 99.9 while the position still sits on the runway. Trust goes caution, then trusted; the verdict is `real_event`, `act_now`, critical.
+   - The batch gives the same answer.
+   - Fix: a "jump not reverted" signal against the `BUFFER_S` baseline (module 3), then a retrain.
+2. **A clean catering truck (`demo:s42v12:0`) reads `real_event` / `act_now` / high at about T+200 to +215 s**, just before ev_real. Its scripted route crosses a building footprint ("83% of positions fall inside a building"). Owner: module 2 routes or the map layers.
+3. **Step latency fails requirement 4 at steady state.** It is 0.5 s with 75 s of buffer but 2.4 s at 300 s and 7.3 s at 900 s.
+   - Why: `compute_features` recomputes every window of the kept points at every step (rolling medians and the map join are 85 % of the time).
+   - The spec's fallback, "recompute only tracks with new fixes", does not help: at 1 Hz every track has new fixes every step.
+   - The real fix belongs in module 3: compute only the window at `until`, trim to `BUFFER_S + WINDOW_S`, and carry the dwell timer as state.
+   - The offline replay (31 tracks, 600 s) is unaffected. The acceptance test passes.
+4. A track silent for up to 300 s stays `trusted` (integrity about 94, low confidence). That is the model's call (module 4).
+5. `tmp_nonmono_count` uses seq order over the whole track, so a batch window can see a fix from after t_end. The verifier found 8 technical_error windows on one synthetic track where the batch is untrusted and the engine is trusted. The evaluation of out-of-order faults is slightly optimistic (module 3).
+6. Silent tracks keep their fleet presence in the engine, but the batch has no windows for them. `flt_n_others` differed on 102 of 7,540 windows of a long approach scene. Long-scene parity is still 99.85 % on integrity_raw and 99.87 % on trust_state.
+
+Fixed after the verifier:
+- A point with `t` outside UNIX seconds, `t` more than `TRACK_GAP_SPLIT_S` ahead of the batch median, or altitude above 20,000 m is rejected on its own. Before, it caused an HTTP 500 or moved the clock permanently.
+- seq now follows request order, so out-of-order timestamps are visible.
+- `track_deg` and `heading_deg` are wrapped to [0, 360).
+
+#### Decisions for the human (module 6)
+
+1. **Replay frames leave out static halos.** They are constant and 4.2 MB each, which would make about 500 MB of committed frames. Frames carry `live` and `forecast` zones. Static halos are in `map/layers/halos_static.geojson` (in git) and in `GET /risk-zones`.
+   - `contracts/examples/replay_frame.json` shows a static zone inside a frame.
+   - Forecast zones reference `static_elev*` ids.
+   - **Tell the map team to load the static layer once**, or decide that frames must carry it.
+2. **Every forecast is also an early warning.** `Verdict.early_warning` is set from `halos.forecast_paths` against the static and live halos: 1,380 forecasts in 121 frames, most toward static building shadows. If that is too noisy on the map, restrict forecasts to live halos.
+3. **Clock on the first POST.** The clock is the latest fix rounded down to the grid, so a first POST with one fix off the grid steps nothing until a later fix crosses a grid time.
+4. **Long gaps.** `POST /tracks` steps at most `ENGINE_MAX_CATCHUP_STEPS` = 720 grid times (1 h) per call.
+5. **Points ahead of the batch.** A point more than `TRACK_GAP_SPLIT_S` ahead of its batch's median `t` is rejected as a bad timestamp. A whole batch far ahead is accepted, because data time may jump.
+6. **ENGINE_KEEP_S = 900 s.** Features over a longer-lived track restart their dwell timer at the oldest kept fix.
+7. **Event titles** in `api/replay.py` (`EVENTS`) are operator-facing text. Please review the wording.
+8. **Red-team route (req. 14) not built.** The spec allows it only after everything else passes.
