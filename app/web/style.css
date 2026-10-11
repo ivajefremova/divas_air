@@ -383,3 +383,23 @@ body.view-cameras .cam-pt { display: grid; }
   body.comparing #impact { max-height: 38vh; }
   .cmp { width: 270px; }
 }
+
+/* --- smaller dashboard ------------------------------------------------------------------------------------- */
+@media (min-width: 761px) {
+  :root { --panel-w: 520px; }
+  #panel-body { padding: 14px 16px 16px; }
+  .d-name { font-size: 19px; }
+  #panel .pinkbox, #panel2 .pinkbox { padding: 8px 12px; margin-bottom: 8px; }
+  #panel .pinkbox .pb-main { font-size: 20px; }
+  .pinkbox .pb-label { font-size: 11px; }
+  .meter i { width: 20px; height: 8px; }
+  .dash-grid { gap: 14px; grid-template-columns: 1fr 1.25fr; }
+  .dim { grid-template-columns: 84px 1fr 62px; font-size: 14px; margin: 4px 0; gap: 8px; }
+  .spark { height: 36px; }
+  .todo { font-size: 14.5px; }
+  .dash-end { padding-top: 10px; gap: 12px; }
+  #panel .impact-btn { padding: 10px 16px; font-size: 14px; }
+  .facts2 { font-size: 14px; gap: 6px 10px; }
+  .sees span { font-size: 12.5px; padding: 2px 7px; }
+  .footage { height: 160px; }
+}

@@ -536,8 +536,12 @@ function addCameras(points, cover) {
 function highlightCamera() {
   if (!map.getLayer('cam-cover')) return;
   const id = S.sel?.kind === 'camera' ? S.sel.id : '';
-  map.setPaintProperty('cam-cover', 'fill-color', ['case', ['==', ['get', 'camera_id'], id], '#ff4fa3', '#2f6bff']);
-  map.setPaintProperty('cam-cover', 'fill-opacity', ['case', ['==', ['get', 'camera_id'], id], 0.35, 0.16]);
+  // only the selected camera's view is drawn, in pink
+  map.setFilter('cam-cover', ['==', ['get', 'camera_id'], id]);
+  map.setFilter('cam-edge', ['==', ['get', 'camera_id'], id]);
+  map.setPaintProperty('cam-cover', 'fill-color', '#ff4fa3');
+  map.setPaintProperty('cam-cover', 'fill-opacity', 0.35);
+  map.setPaintProperty('cam-edge', 'line-color', '#d12b7d');
   S.camMarkers.forEach((m) => m.el.classList.toggle('on', m.id === id));
 }
 
