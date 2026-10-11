@@ -81,15 +81,33 @@ def _asset_class(p: contract.TrackPointIn) -> tuple[dict | None, str | None]:
     }, None
 
 
+def _value_error(p: contract.TrackPointIn, t_ref: float) -> str | None:
+    """Unit and clock checks of one point (a bad point must not break the batch or the clock)."""
+    if not schema._T_MIN <= p.t <= schema._T_MAX:
+        return f"t={p.t} is not UNIX seconds"
+    if p.t > t_ref + params.TRACK_GAP_SPLIT_S:
+        return (
+            f"t={p.t} is more than {params.TRACK_GAP_SPLIT_S:.0f} s ahead of the batch"
+        )
+    for name in ("alt_baro_m", "alt_geom_m"):
+        v = getattr(p, name)
+        if v is not None and v > schema._ALT_MAX_M:
+            return f"{name}={v} is not meters"
+    return None
+
+
 def to_points(
     body: contract.TracksIn, eng: TrustEngine
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Unified-schema points for the accepted points, and one error per rejected point."""
+    """Unified-schema points for the accepted points, and one error per rejected point.
+
+    seq follows the order of the points in the request (arrival order), so
+    out-of-order timestamps stay detectable."""
     rows, errors = [], []
-    order = sorted(range(len(body.points)), key=lambda i: body.points[i].t)
-    for i in order:
-        p = body.points[i]
+    t_ref = float(np.median([p.t for p in body.points])) if body.points else 0.0
+    for i, p in enumerate(body.points):
         cls, err = _asset_class(p)
+        err = err or _value_error(p, t_ref)
         if err is not None:
             errors.append(f"point {i} ({p.asset_id}): {err}")
             continue
@@ -98,6 +116,9 @@ def to_points(
         d.update(
             cls, track_id=track_id, seq=seq, source="live", typecode_raw=p.typecode
         )
+        for a in ("track_deg", "heading_deg"):  # degrees in [0, 360)
+            if d[a] is not None:
+                d[a] = float(d[a]) % 360.0
         rows.append(d)
     if not rows:
         return pd.DataFrame(), errors

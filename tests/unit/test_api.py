@@ -92,3 +92,29 @@ def test_risk_zones_and_cors(client):
     r = client.get("/risk-zones", headers={"Origin": "http://localhost:5173"})
     assert r.headers.get("access-control-allow-origin") == "*"
     contract.RiskZones.model_validate(r.json())
+
+
+def test_bad_values_are_rejected_without_moving_the_clock(client):
+    pts = [
+        point(asset_class="bus"),
+        point("veh_ms", t=T0 * 1000, asset_class="bus"),  # milliseconds
+        point("veh_far", t=T0 + 1e6, asset_class="bus"),  # far ahead of the batch
+        point("veh_ft", asset_class="bus", alt_baro_m=35000.0),  # feet
+    ]
+    ack = contract.IngestAck.model_validate(
+        client.post("/tracks", json={"points": pts}).json()
+    )
+    assert (ack.accepted, ack.rejected) == (1, 3)
+    assert client.get("/verdicts").json()["t"] == T0
+
+
+def test_seq_follows_arrival_and_angles_wrap(client):
+    pts = [
+        point(t=T0 + 1, asset_class="bus", track_deg=360.0),
+        point(t=T0 + 3, asset_class="bus", heading_deg=-5.0),
+        point(t=T0 + 2, asset_class="bus"),
+    ]
+    client.post("/tracks", json={"points": pts})
+    p = api.engine()._pts.sort_values("seq")
+    assert list(p["t"]) == [T0 + 1, T0 + 3, T0 + 2]
+    assert p["track_deg"].iloc[0] == 0.0 and p["heading_deg"].iloc[1] == 355.0
