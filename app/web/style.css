@@ -206,7 +206,7 @@ body:not(.panel-open) #impact { right: 72px; }
 .maplibregl-ctrl-attrib { font: 500 11px "Inter", system-ui, sans-serif; }
 
 /* schematic: a map-reading view, no alerts */
-body.view-schematic #notify, body.view-schematic #link, body.view-schematic #panel, body.view-schematic #panel-tab, body.view-schematic #impact { display: none !important; }
+body.view-schematic #notify, body.view-schematic #link, body.view-schematic #panel, body.view-schematic #panel-tab, body.view-schematic #impact, body.view-schematic #compare { display: none !important; }
 
 /* --- phones ------------------------------------------------------------------------------------------ */
 @media (max-width: 760px) {
@@ -358,4 +358,28 @@ body.view-cameras .cam-pt { display: grid; }
   #demo .menu { left: 0; right: auto; }
   body.panel-open #notify { left: calc(470px + (100% - var(--panel-w) - 32px - 470px) / 2); max-width: calc(100% - var(--panel-w) - 32px - 486px); min-width: 0; }
   body.panel-open #notify .n-text b { font-size: 16px; }
+}
+
+/* --- compare tray: impacted vehicles side by side ---------------------------------------------------------- */
+#compare { position: absolute; left: 260px; right: 16px; bottom: 16px; z-index: 7; display: flex; gap: 10px; overflow-x: auto; padding-bottom: 2px; }
+.cmp { position: relative; flex: none; width: 300px; background: #0b2e6e; color: #eef3ff; border: 1px solid #1d4590; border-radius: 6px;
+  box-shadow: var(--shadow); padding: 12px 14px 10px; --muted: #a9bde6; }
+.cmp-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 4px; background: #1d4590; color: #fff; font-size: 18px; line-height: 1; }
+.cmp-name { font-size: 17px; font-weight: 800; margin: 0 34px 8px 0; }
+.cmp-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cmp .pinkbox { background: #ff4fa3; border-radius: 4px; padding: 6px 9px; margin: 0 0 8px; }
+.cmp .pinkbox .pb-label { color: #ffe1ef; font-size: 10.5px; }
+.cmp .pinkbox .pb-main { color: #fff; font-size: 15px; line-height: 1.2; }
+.cmp .dim { grid-template-columns: 78px 1fr 58px; margin: 3px 0; font-size: 13px; gap: 8px; }
+.cmp .dim .track { background: #23488f; height: 7px; border-radius: 1px; }
+.cmp .dim .fill { border-radius: 1px; }
+.cmp .dim-sep { background: #1d4590; margin: 4px 0; }
+/* place card: name + coordinates, bigger */
+.maplibregl-popup-content { padding: 14px 18px; }
+.place b { font-size: 20px; line-height: 1.2; }
+.place .coords { font-size: 15px; margin-top: 6px; color: #c9d6f5; }
+@media (max-width: 760px) {
+  #compare { left: 0; right: 0; top: 150px; bottom: auto; padding: 8px; z-index: 14; }
+  body.comparing #impact { max-height: 38vh; }
+  .cmp { width: 270px; }
 }

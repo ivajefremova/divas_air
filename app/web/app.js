@@ -56,7 +56,7 @@ const S = {
   scenarios: [], cur: null, manifest: null, frames: [], byTrack: [], disp: [], source: '',
   t: 0, idx: -1, playing: true, view: 'photo', show: { aircraft: true, vehicles: true },
   sel: null, impact: null, panelOpen: false, items: [], top: null, notified: null,
-  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false,
+  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false, compare: [],
 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -194,7 +194,7 @@ function addLayers(L, photo) {
   map.addLayer({ id: 'routes-service', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'service_road'], layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#c08a5a', 'line-width': zw(1.2, 6) } });
   map.addLayer({ id: 'routes-taxi', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'taxiway'], layout: { 'line-cap': 'round' },
-    paint: { 'line-color': '#ff4fa3', 'line-width': zw(2, 10) } });
+    paint: { 'line-color': '#16a34a', 'line-width': zw(2, 10) } });
   map.addLayer({ id: 'stands', type: 'circle', source: 'stands', minzoom: 14.5, paint: { 'circle-radius': 4, 'circle-color': '#3d4766', 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 } });
   map.addLayer({ id: 'holding', type: 'circle', source: 'holding_points', minzoom: 13.5,
     paint: { 'circle-radius': 5, 'circle-color': COLORS.red, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } });
@@ -240,15 +240,15 @@ function placeAt(point) {
   const box = [[point.x - 7, point.y - 7], [point.x + 7, point.y + 7]];
   const hits = map.queryRenderedFeatures(box, { layers: PLACE_ORDER });
   for (const id of PLACE_ORDER) { const f = hits.find((h) => h.layer.id === id); if (f) return PLACE[id](f.properties || {}); }
-  return ['Open ground', 'Grass or unmarked area inside the airport.'];
+  return ['Open ground'];
 }
 
-function placeInfo(lngLat, point, title) {
-  const [name, what] = placeAt(point);
+const shortPlace = (name) => (name.length > 22 ? name.split(' ').slice(0, 2).join(' ') : name);
+function placeInfo(lngLat, point) {
+  const [name] = placeAt(point);
   S.popup?.remove();
-  S.popup = new maplibregl.Popup({ closeButton: true, maxWidth: '280px', offset: 12 }).setLngLat(lngLat)
-    .setHTML(`<div class="place">${title ? `<b>${esc(title)}</b>on ` : ''}<b>${esc(name)}</b>${esc(what)}
-      <div class="coords">${lngLat.lat.toFixed(5)}° N, ${lngLat.lng.toFixed(5)}° E</div></div>`).addTo(map);
+  S.popup = new maplibregl.Popup({ closeButton: false, maxWidth: '320px', offset: 14 }).setLngLat(lngLat)
+    .setHTML(`<div class="place"><b>${esc(shortPlace(name))}</b><div class="coords">${lngLat.lat.toFixed(5)}° N<br>${lngLat.lng.toFixed(5)}° E</div></div>`).addTo(map);
 }
 
 // ---- markers ------------------------------------------------------------------------------
@@ -263,7 +263,7 @@ function markerFor(v) {
     e.stopPropagation();
     if (S.view === 'schematic') {
       const p = S.pos.get(v.track_id);
-      return placeInfo({ lng: p.lon, lat: p.lat }, map.project([p.lon, p.lat]), nameOf(S.byTrack[S.idx].get(v.track_id) || v));
+      return placeInfo({ lng: p.lon, lat: p.lat }, map.project([p.lon, p.lat]));
     }
     select({ kind: 'track', id: v.track_id });
   });
@@ -279,7 +279,7 @@ function styleMarkers(frame) {
   for (const v of frame.verdicts) {
     present.add(v.track_id);
     const m = markerFor(v);
-    const sel = (S.sel?.kind === 'track' && S.sel.id === v.track_id) || S.sel2 === v.track_id;
+    const sel = (S.sel?.kind === 'track' && S.sel.id === v.track_id) || S.compare.includes(v.track_id);
     m.el.className = ['trk', v.domain, `c-${v.asset_class}`, `s-${v.trust_state}`, v.confidence_level === 'low' ? 'conf-low' : '',
       causes.has(v.track_id) ? 'cause' : '', sel ? 'sel' : '', shown(v) && (S.view !== 'cameras' || isAlert(v)) ? '' : 'hidden'].join(' ');
     m.tag.textContent = nameOf(v);
@@ -608,27 +608,45 @@ $('impact-close').addEventListener('click', closeImpact);
 $('impact-body').addEventListener('click', (e) => {
   const b = e.target.closest('[data-track]');
   if (!b) return;
-  if (S.sel?.kind === 'track' && S.sel.id !== b.dataset.track) { S.sel2 = b.dataset.track; renderPanel2(); styleMarkers(S.frames[S.idx]); }
-  else select({ kind: 'track', id: b.dataset.track });
+  const id = b.dataset.track;
+  if (S.sel?.kind !== 'track') return select({ kind: 'track', id });
+  if (id !== S.sel.id && !S.compare.includes(id)) S.compare.push(id);  // open it next to the others
+  renderCompare();
+  styleMarkers(S.frames[S.idx]);
 });
 
-function renderPanel2() {
-  const box = $('panel2');
-  box.hidden = !S.sel2;
-  if (S.sel2) $('panel2-body').innerHTML = dashboard(S.sel2, true);
+// compact windows of impacted vehicles, side by side
+function compareCard(id) {
+  const v = S.byTrack[S.idx].get(id);
+  if (!v) return `<div class="cmp"><button class="cmp-x" data-cmpclose="${esc(id)}">×</button><div class="cmp-name">${esc(id)}</div><div class="none">No position right now</div></div>`;
+  const lvl = v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1);
+  return `<div class="cmp"><button class="cmp-x" data-cmpclose="${esc(id)}" aria-label="Close">×</button>
+    <div class="cmp-name">${esc(nameOf(v))}</div>
+    <div class="cmp-boxes"><div class="pinkbox"><div class="pb-label">Confidence</div><div class="pb-main">${lvl}</div></div>
+      <div class="pinkbox"><div class="pb-label">Likely cause</div><div class="pb-main">${esc(CAUSE_TEXT[v.cause])}</div></div></div>
+    <div class="bars">${bar('Integrity', v.integrity, true)}${bar('Normality', v.normality, true)}<div class="dim-sep"></div>
+      ${Object.entries(v.dimensions).map(([k, x]) => bar(k[0].toUpperCase() + k.slice(1), x)).join('')}</div></div>`;
 }
-$('panel2-body').addEventListener('click', (e) => {
-  if (e.target.closest('[data-close2]')) { S.sel2 = null; renderPanel2(); return styleMarkers(S.frames[S.idx]); }
-  const imp = e.target.closest('[data-impact]');
-  if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
+function renderCompare() {
+  const box = $('compare');
+  box.hidden = !S.compare.length;
+  box.innerHTML = S.compare.map(compareCard).join('');
+  document.body.classList.toggle('comparing', S.compare.length > 0);
+}
+$('compare').addEventListener('click', (e) => {
+  const x = e.target.closest('[data-cmpclose]');
+  if (!x) return;
+  S.compare = S.compare.filter((id) => id !== x.dataset.cmpclose);
+  renderCompare();
+  styleMarkers(S.frames[S.idx]);
 });
 
 // ---- selection --------------------------------------------------------------------------------
 
 function select(sel) {
   S.sel = sel;
-  S.sel2 = null;
-  renderPanel2();
+  if (sel?.kind === 'track') S.compare = S.compare.filter((id) => id !== sel.id);
+  renderCompare();
   highlightCamera();
   if (sel) openPanel(true);
   styleMarkers(S.frames[S.idx]);
@@ -644,7 +662,7 @@ function openPanel(open) {
 
 $('panel-tab').addEventListener('click', () => openPanel(!S.panelOpen));
 $('panel-body').addEventListener('click', (e) => {
-  if (e.target.closest('[data-close]')) { S.sel = null; S.sel2 = null; renderPanel2(); return openPanel(false); }
+  if (e.target.closest('[data-close]')) { S.sel = null; return openPanel(false); }
   if (e.target.closest('[data-back]')) return select(null);
   const imp = e.target.closest('[data-impact]');
   if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
@@ -665,7 +683,7 @@ const THUMBS = {
   cameras: `<svg viewBox="0 0 84 62"><rect width="84" height="62" fill="#eef1f7"/><path d="M0 40 L84 18 L84 27 L0 49Z" fill="#1f2540"/>
     <path d="M20 50 L4 20 L40 18Z" fill="#2f6bff" opacity=".25"/><path d="M64 46 L50 14 L82 22Z" fill="#ff4fa3" opacity=".35"/><circle cx="20" cy="50" r="5" fill="#0b2e6e"/><circle cx="64" cy="46" r="5" fill="#0b2e6e"/></svg>`,
   schematic: `<svg viewBox="0 0 84 62"><rect width="84" height="62" fill="#eef1f7"/><rect x="40" y="34" width="36" height="20" rx="2" fill="#dbe4f6"/>
-    <path d="M0 40 L84 18 L84 27 L0 49Z" fill="#1f2540"/><path d="M6 10 Q 40 30 80 6" stroke="#ff4fa3" stroke-width="4" fill="none"/><path d="M10 58 L60 30" stroke="#c08a5a" stroke-width="3"/><circle cx="30" cy="18" r="3" fill="#e5383b"/></svg>`,
+    <path d="M0 40 L84 18 L84 27 L0 49Z" fill="#1f2540"/><path d="M6 10 Q 40 30 80 6" stroke="#16a34a" stroke-width="4" fill="none"/><path d="M10 58 L60 30" stroke="#c08a5a" stroke-width="3"/><circle cx="30" cy="18" r="3" fill="#e5383b"/></svg>`,
 };
 function renderViews() {
   $('views-thumb').innerHTML = THUMBS[S.view];
@@ -704,7 +722,7 @@ async function openScenario(sc, overview = true) {
   S.cur = sc;
   S.markers.forEach((m) => m.marker.remove());  // track ids repeat across scenarios with other vehicle types
   S.markers.clear();
-  S.sel = null; S.sel2 = null; S.notified = null; S.top = null;
+  S.sel = null; S.compare = []; S.notified = null; S.top = null;
   closeImpact();
   openPanel(false);
   S.popup?.remove();
@@ -739,7 +757,7 @@ function onFrame() {
   drawRisk(frame);
   drawTrails();
   renderPanel();
-  renderPanel2();
+  renderCompare();
   renderImpact();
   renderNotify();
   $('clock').textContent = `${hhmmss(frame.t)} UTC`;
