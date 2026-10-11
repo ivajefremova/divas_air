@@ -86,7 +86,8 @@ async function loadScenarios() {
         base: CFG.realBundle, t_start: real.t_start, onset_t: ev.t_start, focus: ev.track_ids, real: true });
     }
   }
-  const covered = new Set((real?.events || []).map((e) => e.kind));  // the pipeline's events replace the simulated versions
+  if (real) return list;  // pipeline demos only; simulated scenarios are a fallback when there is no bundle
+  const covered = new Set();
   const idx = await getJson(CFG.scenarioIndex);
   const dir = CFG.scenarioIndex.replace(/index\.json$/, '');
   for (const sc of idx?.scenarios || []) {
