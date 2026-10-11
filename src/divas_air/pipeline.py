@@ -31,7 +31,9 @@ FEATURES_DIR = config.PROCESSED / "features"
 VERDICTS_DIR = config.PROCESSED / "verdicts"
 FLEET_DIR = config.PROCESSED / "fleet"
 BASELINE_APRON_PATH = FLEET_DIR / "baseline_apron.parquet"
-CHUNK_ROWS = 300_000  # verdict assembly runs on whole tracks, about this many rows at a time
+CHUNK_ROWS = (
+    300_000  # verdict assembly runs on whole tracks, about this many rows at a time
+)
 
 
 @dataclass
@@ -43,7 +45,9 @@ class FleetTables:
 
 
 def load_baseline() -> pd.DataFrame | None:
-    return pd.read_parquet(BASELINE_APRON_PATH) if BASELINE_APRON_PATH.exists() else None
+    return (
+        pd.read_parquet(BASELINE_APRON_PATH) if BASELINE_APRON_PATH.exists() else None
+    )
 
 
 def degraded_flags(features: pd.DataFrame, bundle) -> np.ndarray:
@@ -113,13 +117,19 @@ def verdicts(features: pd.DataFrame, bundle=None, baseline: pd.DataFrame | None 
     ).reset_index(drop=True)
     f = f.merge(ft.features[KEYS + registry.FLEET_COLUMNS], on=KEYS, how="left")
     f = f.merge(ft.members[KEYS + ["area_alert_id"]], on=KEYS, how="left")
-    f["area_alert_id"] = f["area_alert_id"].astype(object).where(f["area_alert_id"].notna(), None)
+    f["area_alert_id"] = (
+        f["area_alert_id"].astype(object).where(f["area_alert_id"].notna(), None)
+    )
     parts = []
     for idx in _track_chunks(f["track_id"], CHUNK_ROWS) if len(f) else []:
         v = assemble(f.iloc[np.sort(idx)], bundle)
         v.index = np.sort(idx)
         parts.append(v)
-    out = pd.concat(parts).sort_index().reset_index(drop=True) if parts else assemble(f, bundle)
+    out = (
+        pd.concat(parts).sort_index().reset_index(drop=True)
+        if parts
+        else assemble(f, bundle)
+    )
     return out, ft
 
 

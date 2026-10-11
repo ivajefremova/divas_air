@@ -132,6 +132,9 @@ REGIONAL = FleetProfile(
 )
 FLEET_PROFILES = {p.name: p for p in (APRON, REGIONAL)}
 HALO_SIGMA_M = 150.0  # Gaussian kernel of live halos
+# static halos: rings where the building elevation angle crosses these (degrees)
+HALO_ELEVATION_DEG = (45.0, 30.0, 15.0)
+HALO_SIMPLIFY_M = 1.0  # simplification tolerance of static halo polygons
 FORECAST_HORIZONS_S = (30, 60)
 
 # --- API (specs/06) ---------------------------------------------------------
