@@ -201,3 +201,13 @@ Fixed in module 4 after the audit:
 4. **In-sample apron baseline (LOW, mandated by spec).** Clean train scenes feed the apron baseline that their own fleet features are later tested against.
 5. **Same airframes across splits (LOW).** 429 of 1,399 approach aircraft appear in more than one split, on different flights.
 6. **The train-scene threshold refit leaks nothing into the models.** No model input reads the thresholds file, and the vehicle spatial and contextual taus are identical under both fits. The refit is still needed so the `fitted_on` provenance is correct, and the instruction requires it before training.
+
+## ADR dataset (`adr_mock`, alternative layer set)
+
+Done 2026-10-11; details in `docs/ADR_DATASET.md`.
+
+- `python -m divas_air.ingest --source adr_mock` reads ADR's tar in place and writes 664,573 points in 603 tracks (one per asset_id, 2026-10-08, 1 Hz). No sample is dropped; 85 headings of 360 are wrapped to 0.
+- Side table `data/processed/adr/adr_mock_side.parquet` (gitignored).
+- `data/reference/adr_class_map.csv`: 6 exact, 17 approx, 4 unmatched classes (fork_lift, cargo_truck, gpu_unit, works_vehicle; 19 % of samples, no envelope check).
+- `MapLayers.load(profile="adr")`: 339 ADR zones plus the airside boundary, ADR criticality and speed limits, and `layers.zone_access`. The default profile is unchanged.
+- Open: mapfeat reads `zone_access.csv`, not `layers.zone_access`. ADR has no course, baro altitude or NACp, so heading, altitude-divergence and signal checks are blind on it. A per-sample output for ADR's scoring is still to be built.
