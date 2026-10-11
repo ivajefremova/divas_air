@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "sensitive_zones",
+"xy_coordinate_resolution": 1e-07,
+"features": [
+
+]
+}
