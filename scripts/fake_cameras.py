@@ -57,16 +57,31 @@ def build_cameras(ap: Airport):
         edge = a["poly"].exterior.interpolate(a["poly"].exterior.project(Point(c.x + 400, c.y - 400)))
         add("mast", (edge.x, edge.y), bearing((edge.x, edge.y), (c.x, c.y)),
             label=f"Apron mast near {ap.apron_name((c.x, c.y))}", infrared=len(cams) % 2 == 0)
-    # runway CCTV: beside each runway, one camera looking along each half
+    # runway CCTV: four cameras beside each runway, together covering its full length
     for ref, r in ap.runways.items():
         ax = r["axis"]
-        for frac, look in ((0.12, 0.35), (0.88, 0.62)):  # near each end, looking at the middle section
+        nx, ny = (ax.coords[-1][1] - ax.coords[0][1]), -(ax.coords[-1][0] - ax.coords[0][0])
+        n = math.hypot(nx, ny)
+        for k, frac in enumerate((0.1, 0.37, 0.63, 0.9)):
             p = ax.interpolate(frac, normalized=True)
-            q = ax.interpolate(look, normalized=True)
-            nx, ny = (ax.coords[-1][1] - ax.coords[0][1]), -(ax.coords[-1][0] - ax.coords[0][0])
-            n = math.hypot(nx, ny)
-            mount = (p.x + nx / n * 140, p.y + ny / n * 140)
-            add("runway", mount, bearing(mount, (q.x, q.y)), label=f"Runway {ref} {'south' if frac < .5 else 'north'} end, looking inward")
+            side = 1 if k % 2 == 0 else -1
+            mount = (p.x + side * nx / n * 160, p.y + side * ny / n * 160)
+            add("runway", mount, bearing(mount, (p.x, p.y)), label=f"Runway {ref}, {['south end', 'south half', 'north half', 'north end'][k] if ax.coords[0][1] < ax.coords[-1][1] else ['north end', 'north half', 'south half', 'south end'][k]}",
+                fov_deg=110, range_m=620)
+    # taxiway masts: the busiest taxiway intersections, spread over the airport
+    g = ap.graphs["taxiway"]
+    hubs = sorted((nd for nd in g.nodes if g.degree(nd) >= 3), key=lambda nd: -g.degree(nd))
+    picked = []
+    for nd in hubs:
+        if all(math.dist(ap.xy[nd], ap.xy[q]) > 420 for q in picked):
+            picked.append(nd)
+        if len(picked) == 30:
+            break
+    centre = ap.runways["07/25"]["axis"].interpolate(0.5, normalized=True)
+    for nd in picked:
+        xy = ap.xy[nd]
+        add("mast", (xy[0] + 25, xy[1] + 25), bearing(xy, (centre.x, centre.y)), label=f"Taxiway mast near {ap.apron_name(xy)}",
+            fov_deg=220, range_m=450, infrared=True)
     cams[len(cams) // 3]["status"] = "offline"  # a realistic gap: one camera down for maintenance
     return cams
 

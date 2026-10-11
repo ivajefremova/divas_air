@@ -516,7 +516,8 @@ function dashboard(id) {
       </div>
     </div>
     ${isAlert(v) ? `<div class="dash-end"><div class="todo-wrap"><div class="label">What to do</div><div class="todo">${esc(v.action.text)}</div></div>
-      <button class="impact-btn" data-impact="${esc(v.area_alert_id || '')}" data-from="${esc(v.track_id)}">Check impact</button></div>` : ''}`;
+      <div class="btns"><button class="impact-btn cam-btn" data-checkcam="${esc(v.track_id)}">Check camera</button>
+      <button class="impact-btn" data-impact="${esc(v.area_alert_id || '')}" data-from="${esc(v.track_id)}">Check impact</button></div></div>` : ''}`;
 }
 
 // ---- cameras (simulated) ----------------------------------------------------------------------
@@ -545,7 +546,7 @@ function addCameras(points, cover) {
         if (!S.compare.includes(key)) S.compare.push(key);
         renderCompare();
         highlightCamera();
-      } else select({ kind: 'camera', id: cam.camera_id });
+      } else { S.camFor = null; select({ kind: 'camera', id: cam.camera_id }); }
     });
     S.camMarkers.push({ id: cam.camera_id, el, marker: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(cam.coords).addTo(map) });
   }
@@ -558,6 +559,29 @@ function highlightCamera() {
   map.setFilter('cam-cover', filter);
   map.setFilter('cam-edge', filter);
   S.camMarkers.forEach((m) => m.el.classList.toggle('on', ids.includes(m.id)));
+}
+
+// The best camera for a flagged vehicle: an online camera whose view covers its position, closest first
+// (night vision first at night); otherwise the nearest online camera.
+function bestCamera(trackId) {
+  const p = S.pos.get(trackId);
+  if (!p) return null;
+  const night = S.cur?.night;
+  const online = S.cameras.filter((c) => c.status === 'online').map((c) => ({ c, d: distM({ lon: c.coords[0], lat: c.coords[1] }, p), sees: !!c.ring && inRing(p, c.ring) }));
+  const rank = (x) => x.d - (night && x.c.infrared ? 1e4 : 0);
+  const seeing = online.filter((x) => x.sees).sort((a, b) => rank(a) - rank(b));
+  return seeing[0] || online.sort((a, b) => a.d - b.d)[0] || null;
+}
+
+function checkCamera(trackId) {
+  const best = bestCamera(trackId);
+  if (!best) return;
+  S.camFor = { track: trackId, camera: best.c.camera_id, sees: best.sees, d: Math.round(best.d) };
+  applyView('cameras');
+  const p = S.pos.get(trackId), c = best.c.coords;
+  const b = new maplibregl.LngLatBounds([p.lon, p.lat], [p.lon, p.lat]).extend(c);
+  map.fitBounds(b, { padding: { top: 120, bottom: isPhone() ? innerHeight * 0.5 : 80, left: isPhone() ? 40 : 300, right: isPhone() ? 40 : 600 }, maxZoom: 15.8, duration: 800 });
+  select({ kind: 'camera', id: best.c.camera_id });
 }
 
 function cameraDash(id, compact = false) {
@@ -575,11 +599,16 @@ function cameraDash(id, compact = false) {
       ${inView.length ? inView.map((v) => `<button class="imp" data-track="${esc(v.track_id)}"><span class="who">${esc(nameOf(v))}</span><b>${esc(ISSUE_WORD[quad(v)] || 'Check')}</b></button>`).join('') : '<div class="none">None right now</div>'}
       ${footage}`;
   }
+  const f = !compact && S.camFor?.camera === id ? S.camFor : null;
+  const fv = f && S.byTrack[S.idx].get(f.track);
+  const checking = fv ? `<div class="pinkbox"><div class="pb-label">Checking</div><div class="pb-main">${esc(nameOf(fv))}</div>
+    <div class="pb-sub">${f.sees ? `In view · ${f.d} m from the camera` : `Not in view of any camera · nearest, ${f.d} m away`}</div></div>` : '';
   return `${head}
     <div class="dash-grid">
       <div class="col-a">
         <div class="d-head"><div class="d-name">${esc(cam.camera_id)}</div></div>
         <div class="cam-label">${esc(cam.label)}</div>
+        ${checking}
         <div class="facts2">
           <div><span>Height</span>${cam.height_m} m</div><div><span>Range</span>${cam.range_m} m</div>
           <div><span>Field of view</span>${cam.fov_deg}°</div><div><span>Night vision</span>${cam.infrared ? 'Yes' : 'No'}</div>
@@ -762,6 +791,8 @@ $('panel-body').addEventListener('click', (e) => {
   if (e.target.closest('[data-back]')) return select(null);
   const imp = e.target.closest('[data-impact]');
   if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
+  const cc = e.target.closest('[data-checkcam]');
+  if (cc) return checkCamera(cc.dataset.checkcam);
   const veh = e.target.closest('[data-track]');
   if (veh) return select({ kind: 'track', id: veh.dataset.track });
   const a = e.target.closest('.alert');
@@ -818,7 +849,7 @@ async function openScenario(sc, overview = true) {
   S.cur = sc;
   S.markers.forEach((m) => m.marker.remove());  // track ids repeat across scenarios with other vehicle types
   S.markers.clear();
-  S.sel = null; S.compare = []; S.notified = null; S.top = null;
+  S.sel = null; S.compare = []; S.notified = null; S.top = null; S.camFor = null;
   renderCompare();
   highlightCamera();
   closeImpact();

@@ -347,3 +347,11 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
   #impact .imp { grid-template-columns: auto 1fr auto; }
   #impact .imp .who small { display: inline; margin-left: 6px; }
 }
+
+/* check camera / check impact */
+.btns { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.cam-btn { background: #2b56a8; }
+.cam-btn:hover { background: #3a6ad0; }
+.pinkbox .pb-sub { font-size: 12.5px; font-weight: 600; color: #ffe1ef; margin-top: 2px; }
+@media (max-width: 760px) { .btns { flex-direction: row; } .btns .impact-btn { flex: 1; } }
+#brand-logo { width: 36px; height: 36px; object-fit: contain; flex: none; border-radius: 4px; }
