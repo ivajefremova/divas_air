@@ -196,13 +196,9 @@ function addLayers(L, photo) {
   map.addLayer({ id: 'stands', type: 'circle', source: 'stands', minzoom: 14.5, paint: { 'circle-radius': 4, 'circle-color': '#3d4766', 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 } });
   map.addLayer({ id: 'holding', type: 'circle', source: 'holding_points', minzoom: 13.5,
     paint: { 'circle-radius': 5, 'circle-color': COLORS.red, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } });
-  // interference: an opaque area, everything else drawn on top
-  map.addLayer({ id: 'risk-live', type: 'fill', source: 'risk', filter: ['==', ['get', 'kind'], 'live'], paint: { 'fill-color': '#ffc9e2', 'fill-opacity': 1 } });
-  map.addLayer({ id: 'risk-live-edge', type: 'line', source: 'risk', filter: ['==', ['get', 'kind'], 'live'], paint: { 'line-color': '#e8368a', 'line-width': 3 } });
   map.addLayer({ id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'c'], 'line-opacity': ['get', 'o'], 'line-width': 3 } });
   map.addLayer({ id: 'risk-forecast', type: 'line', source: 'risk', filter: ['==', ['get', 'kind'], 'forecast'], layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#e8368a', 'line-width': 3, 'line-dasharray': [1.5, 1.5] } });
-  map.on('click', 'risk-live', (e) => { if (S.view !== 'photo') return; e.preventDefault(); const id = e.features[0].properties.area_alert_id; if (id) openImpact(id); });
   map.on('click', (e) => {
     if (S.view === 'schematic') return placeInfo(e.lngLat, e.point);
     if (!e.defaultPrevented) { closeImpact(); if (S.sel) select(null); }
@@ -325,7 +321,7 @@ function drawRisk(frame) {
   const live = new Set(frame.risk_zones.features.filter((f) => f.properties.kind === 'live').map((f) => f.properties.risk_zone_id));
   const soonest = frame.risk_zones.features.filter((f) => f.properties.kind === 'forecast' && live.has(f.properties.enters_risk_zone_id))
     .sort((a, b) => a.properties.eta_s - b.properties.eta_s).slice(0, 3);
-  map.getSource('risk').setData({ type: 'FeatureCollection', features: frame.risk_zones.features.filter((f) => f.properties.kind === 'live').concat(soonest) });
+  map.getSource('risk').setData({ type: 'FeatureCollection', features: soonest });
   S.fcLabels = soonest.map((f) => {
     const el = document.createElement('div');
     el.className = 'fc-label';
@@ -407,6 +403,7 @@ function renderNotify() {
     n.style.animation = 'none'; void n.offsetWidth; n.style.animation = '';
     beep(critical);
     keepInView();
+    if (top.kind === 'area' && S.view === 'photo') openImpact(top.id);
   }
 }
 
@@ -499,7 +496,7 @@ function dashboard(id) {
     <div class="label">Integrity, last 5 min</div>${sparkline(id)}
     <div class="dash-end">
       ${isAlert(v) ? `<div class="label">What to do</div><div class="todo">${esc(v.action.text)}</div>` : ''}
-      ${v.area_alert_id ? `<button class="impact-btn" data-impact="${esc(v.area_alert_id)}">Check impact</button>` : ''}
+      ${isAlert(v) ? `<button class="impact-btn" data-impact="${esc(v.area_alert_id || '')}" data-from="${esc(v.track_id)}">Check impact</button>` : ''}
     </div>`;
 }
 
@@ -516,16 +513,26 @@ function sparkline(id) {
 
 // ---- impact card: the vehicles hit by an area event -------------------------------------------------
 
-function openImpact(areaId) { S.impact = areaId; renderImpact(); }
+const NEAR_M = 400;
+function openImpact(areaId, trackId) { S.impact = areaId ? { area: areaId } : { near: trackId }; renderImpact(); }
 function closeImpact() { S.impact = null; $('impact').hidden = true; }
 function renderImpact() {
   const box = $('impact');
   if (!S.impact) { box.hidden = true; return; }
-  const members = S.frames[S.idx].verdicts.filter((v) => v.area_alert_id === S.impact).sort((a, b) => b.confidence - a.confidence);
+  const vs = S.frames[S.idx].verdicts;
+  let members, label;
+  if (S.impact.area) {
+    members = vs.filter((v) => v.area_alert_id === S.impact.area).sort((a, b) => b.confidence - a.confidence);
+    label = 'Impacted vehicles';
+  } else {
+    const c = S.pos.get(S.impact.near);
+    members = c ? vs.filter((v) => v.track_id !== S.impact.near && S.pos.get(v.track_id) && distM(c, S.pos.get(v.track_id)) < NEAR_M)
+      .sort((a, b) => distM(c, S.pos.get(a.track_id)) - distM(c, S.pos.get(b.track_id))) : [];
+    label = `Vehicles within ${NEAR_M} m`;
+  }
   box.hidden = false;
-  $('impact-body').innerHTML = members.length ? `<div class="i-label">Impacted vehicles</div>` +
-    members.map((v) => `<button class="imp" data-track="${esc(v.track_id)}">${esc(nameOf(v))}<b>${Math.round(v.confidence * 100)} %</b></button>`).join('')
-    : '<div class="i-label">No vehicles impacted any more</div>';
+  $('impact-body').innerHTML = `<div class="i-label">${members.length ? label : 'No vehicles nearby'}</div>` +
+    members.map((v) => `<button class="imp" data-track="${esc(v.track_id)}">${esc(nameOf(v))}<b>${Math.round(v.confidence * 100)} %</b></button>`).join('');
 }
 $('impact-close').addEventListener('click', closeImpact);
 $('impact-body').addEventListener('click', (e) => { const b = e.target.closest('[data-track]'); if (b) select({ kind: 'track', id: b.dataset.track }); });
@@ -551,7 +558,7 @@ $('panel-body').addEventListener('click', (e) => {
   if (e.target.closest('[data-close]')) { S.sel = null; return openPanel(false); }
   if (e.target.closest('[data-back]')) return select(null);
   const imp = e.target.closest('[data-impact]');
-  if (imp) return openImpact(imp.dataset.impact);
+  if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
   const a = e.target.closest('.alert');
   if (a) {
     const it = S.items[Number(a.dataset.k)];
