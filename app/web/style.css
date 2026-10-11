@@ -354,4 +354,4 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
 .cam-btn:hover { background: #3a6ad0; }
 .pinkbox .pb-sub { font-size: 12.5px; font-weight: 600; color: #ffe1ef; margin-top: 2px; }
 @media (max-width: 760px) { .btns { flex-direction: row; } .btns .impact-btn { flex: 1; } }
-#brand-logo { width: 36px; height: 36px; object-fit: contain; flex: none; border-radius: 4px; }
+#brand-logo { width: 44px; height: 44px; margin: -4px 0; object-fit: contain; flex: none; border-radius: 4px; }
