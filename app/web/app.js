@@ -321,7 +321,10 @@ function drawTrails() {
 function drawRisk(frame) {
   map.getSource('risk').setData({ type: 'FeatureCollection', features: frame.risk_zones.features.filter((f) => f.properties.kind !== 'static') });
   S.fcLabels.forEach((m) => m.remove());
-  const soonest = frame.risk_zones.features.filter((f) => f.properties.kind === 'forecast').sort((a, b) => a.properties.eta_s - b.properties.eta_s).slice(0, 3);
+  // forecasts into a live interference area only; most forecasts point at static building shadows, not interference
+  const live = new Set(frame.risk_zones.features.filter((f) => f.properties.kind === 'live').map((f) => f.properties.risk_zone_id));
+  const soonest = frame.risk_zones.features.filter((f) => f.properties.kind === 'forecast' && live.has(f.properties.enters_risk_zone_id))
+    .sort((a, b) => a.properties.eta_s - b.properties.eta_s).slice(0, 3);
   map.getSource('risk').setData({ type: 'FeatureCollection', features: frame.risk_zones.features.filter((f) => f.properties.kind === 'live').concat(soonest) });
   S.fcLabels = soonest.map((f) => {
     const el = document.createElement('div');
@@ -493,7 +496,6 @@ function dashboard(id) {
     <div class="bars">${bar('Integrity', v.integrity, true)}${bar('Normality', v.normality, true)}<div class="dim-sep"></div>${dims}</div>
     <div class="pinkbox"><div class="pb-label">Likely cause</div>
       <div class="pb-main">${esc(CAUSE_TEXT[v.cause])} <small>· ${Math.round(v.cause_probs[v.cause] * 100)} %</small></div></div>
-    ${v.evidence.length ? `<ul class="why">${v.evidence.map((e) => `<li>${esc(e.text)}</li>`).join('')}</ul>` : ''}
     <div class="label">Integrity, last 5 min</div>${sparkline(id)}
     <div class="dash-end">
       ${isAlert(v) ? `<div class="label">What to do</div><div class="todo">${esc(v.action.text)}</div>` : ''}
