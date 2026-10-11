@@ -2,57 +2,40 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Divas Air</title>
-<meta name="description" content="Divas Air: how much to trust each position on the Fiumicino aprons. Simulated demo.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <link rel="stylesheet" href="style.css">
 </head>
-<body class="view-photo">
+<body>
 <div id="map"></div>
-<div id="flash" aria-hidden="true"></div>
 
-<!-- top left: brand, status, legend -->
-<div id="topleft">
-  <header id="brand" class="card">
-    <div class="logo" aria-hidden="true"><span></span><span></span></div>
-    <div class="brand-text">
-      <div class="brand-name">Divas Air</div>
-      <div id="status" class="status">Loading…</div>
-    </div>
-    <div id="clock" class="clock"></div>
-    <button id="legend-btn" class="icon-btn" aria-expanded="true" title="Legend">i</button>
-  </header>
-  <section id="legend" class="card"></section>
-</div>
-
-<!-- top bar: scenario, demos, pitch switch -->
-<div id="topcenter" class="card">
-  <div id="scenario-title" class="scenario-title"></div>
-  <div id="topright">
-    <button id="demo-btn" class="pill-btn" aria-expanded="false">Demos</button>
-    <div id="demo-menu" class="card menu" hidden>
-      <div class="menu-head">Scenarios <span class="sim-tag">simulated</span></div>
-      <div id="demo-list"></div>
-      <div class="menu-sep"></div>
-      <div class="menu-row">
-        <button id="demo-play" class="menu-chip"></button>
-        <button id="demo-restart" class="menu-chip">Restart</button>
-        <button id="share-btn" class="menu-chip">Share</button>
-      </div>
-      <div id="demo-source" class="menu-note"></div>
-    </div>
+<!-- top left: name, status, clock -->
+<header id="brand" class="card">
+  <div class="logo" aria-hidden="true"><span></span><span></span></div>
+  <div>
+    <div class="brand-name">Divas Air</div>
+    <div id="status" class="status">Loading…</div>
   </div>
-  <label class="jam" title="Jam the airport (simulated)">
-    <input type="checkbox" id="jam-toggle"><span class="jam-track"><span class="jam-knob"></span></span>
-    <span class="jam-label">Jam GNSS</span>
-  </label>
+  <div id="clock" class="clock"></div>
+</header>
+
+<!-- top right: demo menu -->
+<div id="demo">
+  <button id="demo-btn" class="card pill-btn" aria-expanded="false">Demo</button>
+  <div id="demo-menu" class="card menu" hidden>
+    <div id="demo-events"></div>
+    <div class="menu-sep"></div>
+    <button id="demo-play" class="menu-item"></button>
+    <button id="demo-restart" class="menu-item">Restart</button>
+    <div id="demo-source" class="menu-note"></div>
+  </div>
 </div>
 
-<!-- bottom left: map views only -->
+<!-- bottom left: map views -->
 <div id="views">
   <button id="views-btn" class="card view-current" aria-expanded="false">
     <span class="thumb" id="views-thumb"></span>
@@ -61,57 +44,20 @@
   <div id="views-menu" class="card" hidden>
     <div class="view-grid" id="view-grid"></div>
     <div class="menu-sep"></div>
-    <div class="toggles">
-      <label class="toggle"><input type="checkbox" id="show-aircraft" checked><span></span>Aircraft</label>
-      <label class="toggle"><input type="checkbox" id="show-vehicles" checked><span></span>Vehicles</label>
-      <label class="toggle"><input type="checkbox" id="show-cameras"><span></span>All cameras</label>
-    </div>
+    <label class="toggle"><input type="checkbox" id="show-aircraft" checked><span></span>Aircraft</label>
+    <label class="toggle"><input type="checkbox" id="show-vehicles" checked><span></span>Vehicles</label>
+    <div class="type-key" id="type-key"></div>
   </div>
 </div>
 
-<!-- right: issues, always open -->
-<aside id="issues" class="card">
-  <button id="issues-head" class="issues-head" aria-expanded="false">
-    <span class="issues-title">Issues</span>
-    <span id="issues-count" class="issues-count">0</span>
-    <span class="sheet-grip" aria-hidden="true"></span>
-  </button>
-  <div id="issues-list"></div>
+<!-- right: alerts and details -->
+<button id="panel-tab" class="card" aria-controls="panel" aria-expanded="false">
+  <span class="tab-icon" aria-hidden="true">‹</span>
+  <span id="tab-count" class="tab-count" hidden>0</span>
+</button>
+<aside id="panel" class="card" aria-hidden="true">
+  <div id="panel-body"></div>
 </aside>
-
-<!-- details of the selected issue -->
-<section id="details" class="card" hidden>
-  <button id="details-close" class="close-btn" aria-label="Close">×</button>
-  <div id="details-body"></div>
-</section>
-
-<!-- simulated camera feed -->
-<section id="live" class="card" hidden>
-  <div class="live-head">
-    <span id="live-title"></span>
-    <button id="live-close" class="close-btn" aria-label="Close">×</button>
-  </div>
-  <div class="live-frame">
-    <div id="live-map"></div>
-    <div id="live-overlay"></div>
-    <div class="live-tl" id="live-cam"></div>
-    <div class="live-tr"><span class="rec"></span>LIVE <span id="live-time"></span></div>
-    <div class="live-bl">SIMULATED FEED</div>
-    <div id="live-msg" class="live-msg" hidden></div>
-  </div>
-  <div id="live-result" class="live-result"></div>
-</section>
-
-<!-- share -->
-<div id="share" class="modal" hidden>
-  <div class="card share-card">
-    <button id="share-close" class="close-btn" aria-label="Close">×</button>
-    <div class="share-title">Try the demo</div>
-    <img id="share-qr" alt="QR code to the demo">
-    <a id="share-url" target="_blank" rel="noopener"></a>
-    <div class="menu-note">All data and camera feeds in this demo are simulated.</div>
-  </div>
-</div>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="config.js"></script>
