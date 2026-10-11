@@ -182,7 +182,7 @@ const BASE_LAYERS = ['photo', 'aprons', 'buildings', 'rwy-fill', 'rwy-line', 'ro
 function addLayers(L, photo) {
   map.addSource('photo', { type: 'raster', tileSize: 256, ...photo });
   for (const k of ['aprons', 'buildings', 'runways', 'routes', 'stands', 'holding_points', 'camcover']) map.addSource(k, { type: 'geojson', data: L[k] });
-  for (const k of ['risk', 'trails']) map.addSource(k, { type: 'geojson', data: empty() });
+  map.addSource('trails', { type: 'geojson', data: empty() });
   const zw = (a, b) => ['interpolate', ['linear'], ['zoom'], 13, a, 17.5, b];
   map.addLayer({ id: 'photo', type: 'raster', source: 'photo' });
   map.addLayer({ id: 'aprons', type: 'fill', source: 'aprons', paint: { 'fill-color': '#dbe4f6' } });
@@ -201,8 +201,6 @@ function addLayers(L, photo) {
   map.addLayer({ id: 'cam-cover', type: 'fill', source: 'camcover', filter: none, paint: { 'fill-color': COLORS.pink, 'fill-opacity': 0.35 } });
   map.addLayer({ id: 'cam-edge', type: 'line', source: 'camcover', filter: none, paint: { 'line-color': '#d12b7d', 'line-width': 1.5 } });
   map.addLayer({ id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'c'], 'line-opacity': ['get', 'o'], 'line-width': 3 } });
-  map.addLayer({ id: 'risk-forecast', type: 'line', source: 'risk', filter: ['==', ['get', 'kind'], 'forecast'], layout: { 'line-cap': 'round' },
-    paint: { 'line-color': '#e8368a', 'line-width': 3, 'line-dasharray': [1.5, 1.5] } });
   map.on('click', (e) => {
     if (S.view === 'schematic') return placeInfo(e.lngLat, e.point);
     if (!e.defaultPrevented) { closeImpact(); if (S.sel) select(null); }
@@ -325,20 +323,10 @@ function drawTrails() {
   map.getSource('trails').setData({ type: 'FeatureCollection', features: feats });
 }
 
-function drawRisk(frame) {
+function drawRisk() {
+  // Forecasts ("enters interference area in N s") are not shown on screen.
   S.fcLabels.forEach((m) => m.remove());
-  // forecasts into a live interference area only; most forecasts point at static building shadows, not interference
-  const live = new Set(frame.risk_zones.features.filter((f) => f.properties.kind === 'live').map((f) => f.properties.risk_zone_id));
-  const soonest = frame.risk_zones.features.filter((f) => f.properties.kind === 'forecast' && live.has(f.properties.enters_risk_zone_id))
-    .sort((a, b) => a.properties.eta_s - b.properties.eta_s).slice(0, 3);
-  map.getSource('risk').setData({ type: 'FeatureCollection', features: soonest });
-  S.fcLabels = soonest.map((f) => {
-    const el = document.createElement('div');
-    el.className = 'fc-label';
-    el.textContent = `Enters interference area in ${Math.round(f.properties.eta_s)} s`;
-    const c = f.geometry.coordinates;
-    return new maplibregl.Marker({ element: el, anchor: 'left', offset: [10, 0] }).setLngLat(c[c.length - 1]).addTo(map);
-  });
+  S.fcLabels = [];
 }
 
 // ---- alerts -------------------------------------------------------------------------------
@@ -378,9 +366,19 @@ const areaTitle = (a) => (a.members[0]?.cause === 'gnss_anomaly' ? 'Warning: GNS
 // ---- the main notification ------------------------------------------------------------------
 
 let audio = null;
-const unlockAudio = () => { try { audio = audio || new AudioContext(); audio.resume(); } catch (e) { /* no sound */ } };
-window.addEventListener('pointerdown', unlockAudio, { once: true });
+function unlockAudio() {  // browsers (iPhone especially) only allow sound started from a tap
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    audio.resume();
+    const src = audio.createBufferSource();
+    src.buffer = audio.createBuffer(1, 1, 22050);
+    src.connect(audio.destination);
+    src.start(0);
+  } catch (e) { /* no sound */ }
+}
+for (const ev of ['pointerdown', 'touchend', 'click']) window.addEventListener(ev, unlockAudio, { passive: true });
 function beep(critical) {
+  if (navigator.vibrate) navigator.vibrate(critical ? [200, 100, 200, 100, 200] : [200, 100, 200]);
   if (!audio || audio.state !== 'running') return;
   const t = audio.currentTime;
   [[0, critical ? 988 : 880], [0.2, critical ? 740 : 660], [0.4, critical ? 988 : 880]].forEach(([d, hz]) => {
@@ -432,8 +430,13 @@ function keepInView() {
   const t = topTarget();
   if (!t || S.view !== 'photo') return;
   const q = map.project([t.lon, t.lat]), c = map.getContainer();
-  const pad = 90, right = c.clientWidth - (S.panelOpen && !isPhone() ? 560 : 60);
-  if (q.x < pad || q.y < 140 || q.x > right || q.y > c.clientHeight - 120) map.easeTo({ center: [t.lon, t.lat], duration: 1200 });
+  const top = isPhone() ? 150 : 110, bottom = c.clientHeight - (isPhone() && S.panelOpen ? c.clientHeight * 0.5 : 120);
+  const right = c.clientWidth - (S.panelOpen && !isPhone() ? 560 : 60);
+  const tooClose = map.getZoom() > (isPhone() ? 16 : 17);
+  if (tooClose || q.x < 60 || q.y < top || q.x > right || q.y > bottom) {
+    map.easeTo({ center: [t.lon, t.lat], zoom: tooClose ? (isPhone() ? 15.5 : 16) : map.getZoom(), duration: 1000,
+      padding: { top: isPhone() ? 140 : 90, bottom: isPhone() && S.panelOpen ? c.clientHeight * 0.5 : 0, left: 0, right: S.panelOpen && !isPhone() ? 560 : 0 } });
+  }
 }
 
 function drawLink() {
@@ -642,13 +645,16 @@ function renderImpact() {
   }
   box.hidden = false;
   const level = (v) => v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1);
-  box.style.setProperty('--cols', members.length > 10 ? 3 : members.length > 5 ? 2 : 1);  // wider, not taller
+  const TOP = 5, more = members.length - TOP, shownRows = S.impact.all ? members : members.slice(0, TOP);
+  box.style.setProperty('--cols', shownRows.length > 10 ? 3 : shownRows.length > 5 ? 2 : 1);  // wider, not taller
   $('impact-body').innerHTML = `<div class="i-label">${members.length ? label : 'No vehicles nearby'}</div><div class="imp-grid">` +
-    members.map((v, k) => `<button class="imp${k < 3 && isAlert(v) ? ' top' : ''}${isAlert(v) ? '' : ' done'}" data-track="${esc(v.track_id)}">
-      <span class="rank">${k + 1}</span><span class="who">${esc(nameOf(v))}<small>${esc(reason(v))}</small></span><b>${level(v)}</b></button>`).join('') + '</div>';
+    shownRows.map((v, k) => `<button class="imp${k < 3 && isAlert(v) ? ' top' : ''}${isAlert(v) ? '' : ' done'}" data-track="${esc(v.track_id)}">
+      <span class="rank">${k + 1}</span><span class="who">${esc(nameOf(v))}<small>${esc(reason(v))}</small></span><b>${level(v)}</b></button>`).join('') + '</div>' +
+    (more > 0 ? `<button class="imp-more" data-more>${S.impact.all ? 'Show top 5' : `⋯ ${more} more`}</button>` : '');
 }
 $('impact-close').addEventListener('click', closeImpact);
 $('impact-body').addEventListener('click', (e) => {
+  if (e.target.closest('[data-more]')) { S.impact.all = !S.impact.all; return renderImpact(); }
   const b = e.target.closest('[data-track]');
   if (!b) return;
   const id = b.dataset.track;
@@ -678,9 +684,10 @@ function renderCompare() {
     let el = box.querySelector(`[data-id="${CSS.escape(id)}"]`);
     if (!el) {
       el = document.createElement('div'); el.className = 'cmp'; el.dataset.id = id; box.appendChild(el);
+      el.innerHTML = '<div class="grip" aria-hidden="true"></div><div class="cmp-body"></div>';
       makeMovable(el, `cmp:${id}`); placeSaved(el, `cmp:${id}`);
     }
-    el.innerHTML = id.startsWith('cam:') ? cameraDash(id.slice(4), true) : compareCard(id);
+    el.querySelector('.cmp-body').innerHTML = id.startsWith('cam:') ? cameraDash(id.slice(4), true) : compareCard(id);
   }
   document.body.classList.toggle('comparing', S.compare.length > 0);
 }
@@ -700,17 +707,19 @@ $('compare').addEventListener('click', (e) => {
 const placed = new Map();  // window key -> {x, y}
 function placeSaved(el, key) {
   const p = placed.get(key);
-  if (!p || isPhone()) return;
+  if (!p) return;
   Object.assign(el.style, { position: 'fixed', left: `${p.x}px`, top: `${p.y}px`, right: 'auto', bottom: 'auto', transform: 'none', zIndex: 20 });
 }
 function makeMovable(el, key) {
   el.addEventListener('pointerdown', (e) => {
-    if (isPhone() || e.button !== 0 || e.target.closest('button, a, input, video, .menu-item')) return;
+    if (e.button !== 0 || e.target.closest('button, a, input, video, .menu-item')) return;
+    if (isPhone() && !e.target.closest('.grip')) return;  // phones: drag by the grab bar only, so scrolling still works
     const k = key, r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
     el.classList.add('dragging');
     el.setPointerCapture(e.pointerId);
     const move = (ev) => {
-      const x = Math.min(Math.max(0, ev.clientX - dx), innerWidth - 60), y = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40);
+      const x = isPhone() ? r.left : Math.min(Math.max(0, ev.clientX - dx), innerWidth - 60);  // phones: up and down only
+      const y = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40);
       placed.set(k, { x, y });
       placeSaved(el, k);
     };
@@ -720,6 +729,10 @@ function makeMovable(el, key) {
   });
 }
 makeMovable($('panel'), 'panel');
+new ResizeObserver(() => {
+  const r = $('panel').getBoundingClientRect();
+  document.body.style.setProperty('--panel-bottom', `${S.panelOpen && r.height ? Math.round(r.bottom) : 0}px`);
+}).observe($('panel'));
 makeMovable($('impact'), 'impact');
 placeSaved($('panel'), 'panel');
 
@@ -737,6 +750,7 @@ function select(sel) {
 
 function openPanel(open) {
   S.panelOpen = open;
+  if (!open) document.body.style.setProperty('--panel-bottom', '0px');
   document.body.classList.toggle('panel-open', open);
   $('panel').setAttribute('aria-hidden', String(!open));
   renderPanel();
@@ -838,7 +852,7 @@ function onFrame() {
   const frame = S.frames[S.idx];
   S.items = alertsAt(frame);
   styleMarkers(frame);
-  drawRisk(frame);
+  drawRisk();
   drawTrails();
   renderPanel();
   renderCompare();

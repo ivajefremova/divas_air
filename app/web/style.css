@@ -67,18 +67,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #notify { position: absolute; top: var(--gap); z-index: 8; display: flex; align-items: center; gap: 14px;
   left: calc(var(--left-w) + (100% - var(--left-w) - var(--right-w)) / 2); transform: translateX(-50%);
   width: max-content; max-width: min(560px, calc(100% - var(--left-w) - var(--right-w) - var(--gap)));
-  padding: 12px 22px 12px 14px; border: 0; border-radius: 8px; text-align: left; background: var(--pink); color: #fff;
-  box-shadow: 0 10px 34px rgba(209, 43, 125, .45), 0 0 0 4px rgba(255, 255, 255, .9); animation: drop .35s ease-out; }
-#notify.critical { background: var(--red); box-shadow: 0 10px 34px rgba(229, 56, 59, .45), 0 0 0 4px rgba(255, 255, 255, .9); }
+  padding: 12px 22px 12px 14px; border: 0; border-radius: 8px; text-align: left; background: var(--red); color: #fff;
+  box-shadow: 0 10px 34px rgba(229, 56, 59, .45), 0 0 0 4px rgba(255, 255, 255, .9); animation: drop .35s ease-out; }
+#notify.critical { background: #b91c1c; box-shadow: 0 10px 34px rgba(185, 28, 28, .5), 0 0 0 4px rgba(255, 255, 255, .9); }
 @keyframes drop { from { transform: translate(-50%, -30px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-.n-icon { width: 38px; height: 38px; border-radius: 50%; background: #fff; color: var(--pink-ink); display: grid; place-items: center; font-weight: 900; font-size: 22px; flex: none; }
-#notify.critical .n-icon { color: var(--red); }
+.n-icon { width: 38px; height: 38px; border-radius: 50%; background: #fff; color: var(--red); display: grid; place-items: center; font-weight: 900; font-size: 22px; flex: none; }
+#notify.critical .n-icon { color: #b91c1c; }
 .n-text b { display: block; font-size: 17px; font-weight: 800; line-height: 1.2; }
 .n-text span { display: block; font-size: 14px; font-weight: 600; opacity: .95; }
 #link { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 7; pointer-events: none; }
-#link-path { fill: none; stroke: var(--pink-ink); stroke-width: 3; stroke-dasharray: 9 7; animation: march 1s linear infinite; }
-#link-dot { fill: #fff; stroke: var(--pink-ink); stroke-width: 3; }
-body.critical #link-path, body.critical #link-dot { stroke: var(--red); }
+#link-path { fill: none; stroke: var(--red); stroke-width: 3; stroke-dasharray: 9 7; animation: march 1s linear infinite; }
+#link-dot { fill: #fff; stroke: var(--red); stroke-width: 3; }
+body.critical #link-path, body.critical #link-dot { stroke: #b91c1c; }
 @keyframes march { to { stroke-dashoffset: -32; } }
 
 /* --- views + legend ------------------------------------------------------------------------------------- */
@@ -161,10 +161,9 @@ body.panel-open #panel { display: flex; }
 .empty-feed span { font-size: 13.5px; }
 
 /* --- impact card: the priority queue (left of the dashboard, below the banner, above the compare tray) ------------ */
-#impact { position: absolute; top: 104px; right: var(--right-w); width: calc(var(--cols, 1) * 228px + 18px); z-index: 7; overflow-y: auto;
-  max-height: calc(100% - 104px - var(--gap)); background: var(--navy-3); border: 1px solid var(--navy-line); border-radius: 6px;
+#impact { position: absolute; top: calc(max(var(--panel-bottom, 0px), 88px) + var(--gap)); right: var(--gap); width: min(calc(var(--cols, 1) * 228px + 18px), var(--panel-w)); z-index: 7; overflow-y: auto;
+  max-height: calc(100% - max(var(--panel-bottom, 0px), 88px) - 2 * var(--gap)); background: var(--navy-3); border: 1px solid var(--navy-line); border-radius: 6px;
   box-shadow: var(--shadow); padding: 14px 12px 10px; }
-body.comparing #impact { max-height: calc(100% - 104px - var(--tray-h) - 2 * var(--gap)); }
 #impact .i-label { font-size: 11.5px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin: 2px 40px 10px 4px; }
 #impact-close { top: 8px; right: 8px; width: 30px; height: 30px; font-size: 20px; }
 .imp { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; width: 100%; border: 0; background: var(--navy-2); color: #fff;
@@ -178,9 +177,11 @@ body.comparing #impact { max-height: calc(100% - 104px - var(--tray-h) - 2 * var
 .imp.done b { background: #2b4f96; }
 
 /* --- compare tray: impacted vehicles side by side ------------------------------------------------------------------ */
-#compare { position: absolute; left: 260px; right: var(--right-w); bottom: var(--gap); max-height: var(--tray-h); z-index: 7;
-  display: flex; gap: 10px; overflow-x: auto; align-items: flex-end; }
-.cmp { position: relative; flex: none; width: 300px; padding: 12px 14px 10px; max-height: var(--tray-h); overflow-y: auto; }
+/* as many windows as needed: they wrap into rows upwards, left of the impact card, below the banner */
+#compare { position: absolute; left: 260px; right: var(--right-w); bottom: var(--gap); max-height: calc(100% - 104px - var(--gap)); z-index: 7;
+  display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px; overflow-y: auto; }
+body.impact-open:not(.panel-open) #compare { right: calc(2 * var(--gap) + var(--panel-w)); }
+.cmp { position: relative; flex: none; width: 270px; padding: 12px 14px 10px; max-height: var(--tray-h); overflow-y: auto; }
 .cmp-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 4px; background: var(--navy-line); color: #fff; font-size: 18px; line-height: 1; }
 .cmp-name { font-size: 17px; font-weight: 800; margin: 0 34px 8px 0; }
 .cmp-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -216,7 +217,7 @@ body.comparing #impact { max-height: calc(100% - 104px - var(--tray-h) - 2 * var
 .trk.s-untrusted .detail, .trk.s-untrusted .beacon { fill: rgba(229, 56, 59, .35); }
 .trk.s-untrusted .band, .trk.s-untrusted .link { stroke: var(--red); }
 .trk .ring { position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%; pointer-events: none;
-  border: 4px solid var(--pink); display: none; }
+  border: 4px solid var(--red); box-shadow: 0 0 0 1.5px #fff; display: none; }
 .trk.cause .ring { display: block; }
 .trk .tag { position: absolute; left: 50%; bottom: calc(50% + 22px); transform: translateX(-50%); white-space: nowrap; background: #fff; color: #18203a;
   font-size: 12.5px; font-weight: 700; padding: 3px 8px; border-radius: 4px; box-shadow: 0 2px 8px rgba(24,32,58,.18); display: none; pointer-events: none; }
@@ -298,3 +299,51 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
 .close-btn { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border: 0; border-radius: 4px; background: var(--navy-line);
   color: #fff; font-size: 20px; line-height: 1; z-index: 2; }
 .close-btn:hover { background: var(--pink); }
+
+/* grab bar: shown on phones, where windows move by it */
+.grip { display: none; }
+@media (max-width: 760px) {
+  .grip { display: block; height: 22px; margin: -6px -8px 2px; touch-action: none; cursor: grab; position: relative; }
+  .grip::after { content: ""; position: absolute; left: 50%; top: 9px; width: 44px; height: 5px; margin-left: -22px; border-radius: 3px; background: #5f7fc4; }
+  #panel > .grip { margin: 4px 0 0; }
+  /* compact dashboard sheet: at most half the screen */
+  #panel { max-height: 50vh; }
+  #panel-body { padding: 4px 14px calc(12px + env(safe-area-inset-bottom)); }
+  .d-name { font-size: 17px; }
+  .d-head { margin-bottom: 6px; }
+  #panel .col-a { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #panel .col-a .d-head { grid-column: 1 / -1; }
+  .pinkbox { padding: 6px 9px; margin: 0; }
+  .pinkbox .pb-main { font-size: 15px; }
+  .pinkbox .pb-label { font-size: 10px; }
+  .meter i { width: 14px; height: 6px; }
+  .dim { grid-template-columns: 76px 1fr 56px; font-size: 13px; margin: 2px 0; }
+  .dim .track { height: 7px; }
+  #panel .label, #panel .spark { display: none; }
+  #panel .dash-end .label { display: block; }
+  .todo { font-size: 13.5px; }
+  .dash-end { padding-top: 6px; gap: 6px; }
+  .impact-btn { padding: 9px; }
+  .facts2 { font-size: 13px; }
+  .footage { height: 100px; }
+  /* impacted vehicles: its own strip under the banner, never behind the dashboard */
+  #impact { inset: 140px 8px auto 8px !important; width: auto; max-height: 30vh; border-radius: 6px; z-index: 13; padding: 6px 8px 8px; }
+  body.comparing #impact { max-height: 30vh; }
+  #impact .i-label { margin: 0 40px 6px 4px; }
+  #impact .imp { padding: 5px 7px; font-size: 13px; }
+  .imp .rank { width: 18px; height: 18px; font-size: 11px; }
+  /* compare windows: a sideways row just above the dashboard sheet */
+  #compare { top: auto; bottom: calc(50vh + 6px); }
+  .cmp { width: 250px; max-height: 26vh; }
+}
+
+.imp-more { display: block; width: 100%; margin-top: 6px; border: 1px dashed var(--navy-line); background: none; color: #a9c1ff; border-radius: 4px; padding: 6px; font-weight: 700; }
+.imp-more:hover { background: var(--navy-2); color: #fff; }
+@media (max-width: 760px) {
+  #compare { left: 0; right: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; max-height: none; }
+}
+@media (max-width: 760px) {
+  #impact .imp-grid { grid-template-columns: 1fr; gap: 4px; }
+  #impact .imp { grid-template-columns: auto 1fr auto; }
+  #impact .imp .who small { display: inline; margin-left: 6px; }
+}
