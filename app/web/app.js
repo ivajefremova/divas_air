@@ -47,6 +47,7 @@ const ICONS = {  // top-down, front at the top, roughly to scale
     ${WIN(2.4, 2.2, 9.2, 3)}<rect class="beacon" x="2" y="6.6" width="10" height="2.2" rx="1.1"/><path class="band" d="M7 13v10M2 18h10"/></svg>`,
   vehicle: `<svg viewBox="0 0 16 20" width="15" height="19"><path class="shape" d="M8 .8l5.2 5.2H13V16a3 3 0 01-3 3H6a3 3 0 01-3-3V6h-.2L8 .8z"/></svg>`,
 };
+const CAM_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h12l2 3-2 3H3z"/><path d="M17 9l4-2v6l-4-2"/><path d="M7 13v4H4"/></svg>';
 const iconFor = (v) => (v.domain === 'aircraft' ? PLANE : ICONS[v.asset_class] || ICONS.vehicle);
 
 // ---- state --------------------------------------------------------------------------------
@@ -55,7 +56,7 @@ const S = {
   scenarios: [], cur: null, manifest: null, frames: [], byTrack: [], disp: [], source: '',
   t: 0, idx: -1, playing: true, view: 'photo', show: { aircraft: true, vehicles: true },
   sel: null, impact: null, panelOpen: false, items: [], top: null, notified: null,
-  markers: new Map(), pos: new Map(), fcLabels: [], popup: null,
+  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false,
 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -176,12 +177,13 @@ iconScale();
 const VIEWS = {
   photo: { label: 'Photo', bg: '#2b3040', on: ['photo', 'rwy-line'] },
   schematic: { label: 'Schematic', bg: '#eef1f7', on: ['aprons', 'buildings', 'rwy-fill', 'rwy-line', 'routes-service', 'routes-taxi', 'stands', 'holding'] },
+  cameras: { label: 'Cameras', bg: '#eef1f7', on: ['aprons', 'buildings', 'rwy-fill', 'rwy-line', 'routes-service', 'routes-taxi', 'cam-cover', 'cam-edge'] },
 };
-const BASE_LAYERS = ['photo', 'aprons', 'buildings', 'rwy-fill', 'rwy-line', 'routes-service', 'routes-taxi', 'stands', 'holding'];
+const BASE_LAYERS = ['photo', 'aprons', 'buildings', 'rwy-fill', 'rwy-line', 'routes-service', 'routes-taxi', 'stands', 'holding', 'cam-cover', 'cam-edge'];
 
 function addLayers(L, photo) {
   map.addSource('photo', { type: 'raster', tileSize: 256, ...photo });
-  for (const k of ['aprons', 'buildings', 'runways', 'routes', 'stands', 'holding_points']) map.addSource(k, { type: 'geojson', data: L[k] });
+  for (const k of ['aprons', 'buildings', 'runways', 'routes', 'stands', 'holding_points', 'camcover']) map.addSource(k, { type: 'geojson', data: L[k] });
   for (const k of ['risk', 'trails']) map.addSource(k, { type: 'geojson', data: empty() });
   const zw = (a, b) => ['interpolate', ['linear'], ['zoom'], 13, a, 17.5, b];
   map.addLayer({ id: 'photo', type: 'raster', source: 'photo' });
@@ -192,10 +194,13 @@ function addLayers(L, photo) {
   map.addLayer({ id: 'routes-service', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'service_road'], layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#c08a5a', 'line-width': zw(1.2, 6) } });
   map.addLayer({ id: 'routes-taxi', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'taxiway'], layout: { 'line-cap': 'round' },
-    paint: { 'line-color': '#2f6bff', 'line-width': zw(2, 10) } });
+    paint: { 'line-color': '#ff4fa3', 'line-width': zw(2, 10) } });
   map.addLayer({ id: 'stands', type: 'circle', source: 'stands', minzoom: 14.5, paint: { 'circle-radius': 4, 'circle-color': '#3d4766', 'circle-stroke-color': '#fff', 'circle-stroke-width': 1 } });
   map.addLayer({ id: 'holding', type: 'circle', source: 'holding_points', minzoom: 13.5,
     paint: { 'circle-radius': 5, 'circle-color': COLORS.red, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.5 } });
+  // simulated cameras: what each one can see (the selected camera in pink)
+  map.addLayer({ id: 'cam-cover', type: 'fill', source: 'camcover', paint: { 'fill-color': '#2f6bff', 'fill-opacity': 0.16 } });
+  map.addLayer({ id: 'cam-edge', type: 'line', source: 'camcover', paint: { 'line-color': '#2f6bff', 'line-width': 1.2, 'line-opacity': 0.7 } });
   map.addLayer({ id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'c'], 'line-opacity': ['get', 'o'], 'line-width': 3 } });
   map.addLayer({ id: 'risk-forecast', type: 'line', source: 'risk', filter: ['==', ['get', 'kind'], 'forecast'], layout: { 'line-cap': 'round' },
     paint: { 'line-color': '#e8368a', 'line-width': 3, 'line-dasharray': [1.5, 1.5] } });
@@ -207,13 +212,15 @@ function addLayers(L, photo) {
 
 function applyView(view) {
   S.view = view;
-  document.body.classList.toggle('view-photo', view === 'photo');
-  document.body.classList.toggle('view-schematic', view === 'schematic');
+  for (const k of Object.keys(VIEWS)) document.body.classList.toggle(`view-${k}`, view === k);
   map.setPaintProperty('bg', 'background-color', VIEWS[view].bg);
   for (const id of BASE_LAYERS) map.setLayoutProperty(id, 'visibility', VIEWS[view].on.includes(id) ? 'visible' : 'none');
   map.setPaintProperty('rwy-line', 'line-width', view === 'photo' ? 1.8 : 2.5);
   S.popup?.remove();
+  if (S.sel?.kind === 'camera' && view !== 'cameras') select(null);
+  highlightCamera();
   renderViews();
+  if (S.frames.length) onFrame();
 }
 
 // ---- schematic: what is this place? ------------------------------------------------------------
@@ -274,7 +281,7 @@ function styleMarkers(frame) {
     const m = markerFor(v);
     const sel = (S.sel?.kind === 'track' && S.sel.id === v.track_id) || S.sel2 === v.track_id;
     m.el.className = ['trk', v.domain, `c-${v.asset_class}`, `s-${v.trust_state}`, v.confidence_level === 'low' ? 'conf-low' : '',
-      causes.has(v.track_id) ? 'cause' : '', sel ? 'sel' : '', shown(v) ? '' : 'hidden'].join(' ');
+      causes.has(v.track_id) ? 'cause' : '', sel ? 'sel' : '', shown(v) && (S.view !== 'cameras' || isAlert(v)) ? '' : 'hidden'].join(' ');
     m.tag.textContent = nameOf(v);
     const d = S.disp[S.idx].get(v.track_id);
     m.icon.style.transform = `rotate(${d ? d.hdg : v.position.track_deg || 0}deg)`;
@@ -299,7 +306,7 @@ function moveMarkers() {
 function drawTrails() {
   const feats = [], from = Math.max(0, S.idx - TRAIL_FRAMES);
   for (const v of S.frames[S.idx].verdicts) {
-    if (!shown(v)) continue;
+    if (!shown(v) || (S.view === 'cameras' && !isAlert(v))) continue;
     let prev = null;
     for (let i = from; i <= S.idx; i++) {
       const w = S.byTrack[i].get(v.track_id), p = S.disp[i].get(v.track_id);
@@ -454,9 +461,9 @@ function renderPanel() {
   const total = frame.verdicts.filter(shown).length, st = $('status');
   st.textContent = items.length ? `${items.length} need${items.length === 1 ? 's' : ''} attention` : `All ${total} positions trusted`;
   st.classList.toggle('warn', items.length > 0);
-  document.body.classList.toggle('dash', S.sel?.kind === 'track');
+  document.body.classList.toggle('dash', !!S.sel && S.sel.kind !== 'area');
   if (!S.panelOpen) return;
-  $('panel-body').innerHTML = S.sel?.kind === 'track' ? dashboard(S.sel.id) : alertList(items);
+  $('panel-body').innerHTML = S.sel?.kind === 'track' ? dashboard(S.sel.id) : S.sel?.kind === 'camera' ? cameraDash(S.sel.id) : alertList(items);
 }
 
 function alertList(items) {
@@ -473,7 +480,7 @@ function alertList(items) {
   }).join('');
 }
 
-const barColor = (x) => (x < 40 ? COLORS.red : x < 70 ? COLORS.amber : '#9aa3bd');
+const barColor = (x) => (x < 40 ? COLORS.red : x < 70 ? COLORS.amber : '#4d8dff');
 const bar = (label, x, major) => `<div class="dim${major ? ' major' : ''}"><span>${label}</span><span class="track"><span class="fill" style="width:${x}%;background:${barColor(x)}"></span></span><span class="val">${Math.round(x)} / 100</span></div>`;
 
 function dashboard(id, second = false) {
@@ -485,18 +492,82 @@ function dashboard(id, second = false) {
   const conf = { low: 1, medium: 2, high: 3 }[v.confidence_level];
   const dims = Object.entries(v.dimensions).map(([k, x]) => bar(k[0].toUpperCase() + k.slice(1), x)).join('');
   return `${head}
-    <div class="d-head"><div class="d-name">${esc(nameOf(v))}</div></div>
-    <div class="pinkbox"><div class="pb-label">Confidence</div>
-      <div class="pb-main">${v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1)} <small>· ${Math.round(v.confidence * 100)} %</small>
-      <span class="meter">${[1, 2, 3].map((k) => `<i class="${k <= conf ? 'on' : ''}"></i>`).join('')}</span></div></div>
-    <div class="bars">${bar('Integrity', v.integrity, true)}${bar('Normality', v.normality, true)}<div class="dim-sep"></div>${dims}</div>
-    <div class="pinkbox"><div class="pb-label">Likely cause</div>
-      <div class="pb-main">${esc(CAUSE_TEXT[v.cause])} <small>· ${Math.round(v.cause_probs[v.cause] * 100)} %</small></div></div>
-    <div class="label">Integrity, last 5 min</div>${sparkline(id)}
-    <div class="dash-end">
-      ${isAlert(v) ? `<div class="label">What to do</div><div class="todo">${esc(v.action.text)}</div>` : ''}
-      ${isAlert(v) ? `<button class="impact-btn" data-impact="${esc(v.area_alert_id || '')}" data-from="${esc(v.track_id)}">Check impact</button>` : ''}
-    </div>`;
+    <div class="dash-grid">
+      <div class="col-a">
+        <div class="d-head"><div class="d-name">${esc(nameOf(v))}</div></div>
+        <div class="pinkbox"><div class="pb-label">Confidence</div>
+          <div class="pb-main">${v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1)}
+          <span class="meter">${[1, 2, 3].map((k) => `<i class="${k <= conf ? 'on' : ''}"></i>`).join('')}</span></div></div>
+        <div class="pinkbox"><div class="pb-label">Likely cause</div><div class="pb-main">${esc(CAUSE_TEXT[v.cause])}</div></div>
+      </div>
+      <div class="col-b">
+        <div class="bars">${bar('Integrity', v.integrity, true)}${bar('Normality', v.normality, true)}<div class="dim-sep"></div>${dims}</div>
+        <div class="label">Integrity, last 5 min</div>${sparkline(id)}
+      </div>
+    </div>
+    ${isAlert(v) ? `<div class="dash-end"><div class="todo-wrap"><div class="label">What to do</div><div class="todo">${esc(v.action.text)}</div></div>
+      <button class="impact-btn" data-impact="${esc(v.area_alert_id || '')}" data-from="${esc(v.track_id)}">Check impact</button></div>` : ''}`;
+}
+
+// ---- cameras (simulated) ----------------------------------------------------------------------
+
+function inRing(p, ring) {  // point in polygon, lon/lat
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > p.lat) !== (yj > p.lat) && p.lon < ((xj - xi) * (p.lat - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function addCameras(points, cover) {
+  const rings = new Map(cover.features.map((f) => [f.properties.camera_id, f.geometry.coordinates[0]]));
+  S.cameras = points.features.map((f) => ({ ...f.properties, coords: f.geometry.coordinates, ring: rings.get(f.properties.camera_id) }));
+  for (const cam of S.cameras) {
+    const el = document.createElement('div');
+    el.className = `cam-pt${cam.status !== 'online' ? ' off' : ''}`;
+    el.innerHTML = CAM_SVG;
+    el.title = cam.camera_id;
+    el.addEventListener('click', (e) => { e.stopPropagation(); select({ kind: 'camera', id: cam.camera_id }); });
+    S.camMarkers.push({ id: cam.camera_id, el, marker: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(cam.coords).addTo(map) });
+  }
+}
+
+function highlightCamera() {
+  if (!map.getLayer('cam-cover')) return;
+  const id = S.sel?.kind === 'camera' ? S.sel.id : '';
+  map.setPaintProperty('cam-cover', 'fill-color', ['case', ['==', ['get', 'camera_id'], id], '#ff4fa3', '#2f6bff']);
+  map.setPaintProperty('cam-cover', 'fill-opacity', ['case', ['==', ['get', 'camera_id'], id], 0.35, 0.16]);
+  S.camMarkers.forEach((m) => m.el.classList.toggle('on', m.id === id));
+}
+
+function cameraDash(id) {
+  const cam = S.cameras.find((c) => c.camera_id === id);
+  const head = `<button class="p-close" data-close aria-label="Hide">${isPhone() ? '×' : '›'}</button><button class="back" data-back>‹ All alerts</button>`;
+  if (!cam) return head;
+  const inView = cam.ring ? S.frames[S.idx].verdicts.filter((v) => isAlert(v) && S.pos.get(v.track_id) && inRing(S.pos.get(v.track_id), cam.ring)) : [];
+  const footage = S.hasVideo
+    ? '<video class="footage" src="media/camera.mp4" autoplay muted loop playsinline></video>'
+    : `<div class="footage empty-feed">${CAM_SVG}<b>Live footage</b><span>Available once camera access is granted</span></div>`;
+  return `${head}
+    <div class="dash-grid">
+      <div class="col-a">
+        <div class="d-head"><div class="d-name">${esc(cam.camera_id)}</div></div>
+        <div class="cam-label">${esc(cam.label)}</div>
+        <div class="facts2">
+          <div><span>Height</span>${cam.height_m} m</div><div><span>Range</span>${cam.range_m} m</div>
+          <div><span>Field of view</span>${cam.fov_deg}°</div><div><span>Night vision</span>${cam.infrared ? 'Yes' : 'No'}</div>
+          <div><span>Status</span>${cam.status === 'online' ? 'Online' : 'Offline'}</div><div><span>Source</span>Simulated</div>
+        </div>
+      </div>
+      <div class="col-b">
+        <div class="label">Sees</div>
+        <div class="sees">${(cam.sees || []).map((x) => `<span>${esc(x)}</span>`).join('') || '<span>Nothing mapped</span>'}</div>
+        <div class="label">Anomalies in view</div>
+        ${inView.length ? inView.map((v) => `<button class="imp" data-track="${esc(v.track_id)}">${esc(nameOf(v))}<b>${esc(ISSUE_WORD[quad(v)] || 'Check')}</b></button>`).join('') : '<div class="none">None right now</div>'}
+      </div>
+    </div>
+    ${footage}`;
 }
 
 function sparkline(id) {
@@ -505,8 +576,8 @@ function sparkline(id) {
   if (pts.length < 2) return '<svg class="spark"></svg>';
   const W = 340, H = 44, x = (i) => ((i - from) / Math.max(1, S.idx - from)) * (W - 6) + 3, y = (val) => H - 3 - (val / 100) * (H - 6);
   const [li, lv] = pts[pts.length - 1];
-  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${y(40)}" y2="${y(40)}" stroke="#f3d3d4" stroke-dasharray="4 4"/>
-    <polyline points="${pts.map(([i, val]) => `${x(i).toFixed(1)},${y(val).toFixed(1)}`).join(' ')}" fill="none" stroke="${COLORS.ink}" stroke-width="2" vector-effect="non-scaling-stroke"/>
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${y(40)}" y2="${y(40)}" stroke="#ff8a8c" stroke-dasharray="4 4"/>
+    <polyline points="${pts.map(([i, val]) => `${x(i).toFixed(1)},${y(val).toFixed(1)}`).join(' ')}" fill="none" stroke="#e9ecf5" stroke-width="2" vector-effect="non-scaling-stroke"/>
     <circle cx="${x(li)}" cy="${y(lv)}" r="3.5" fill="${barColor(lv)}"/></svg>`;
 }
 
@@ -531,7 +602,7 @@ function renderImpact() {
   }
   box.hidden = false;
   $('impact-body').innerHTML = `<div class="i-label">${members.length ? label : 'No vehicles nearby'}</div>` +
-    members.map((v) => `<button class="imp" data-track="${esc(v.track_id)}">${esc(nameOf(v))}<b>${Math.round(v.confidence * 100)} %</b></button>`).join('');
+    members.map((v) => `<button class="imp" data-track="${esc(v.track_id)}">${esc(nameOf(v))}<b>${v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1)}</b></button>`).join('');
 }
 $('impact-close').addEventListener('click', closeImpact);
 $('impact-body').addEventListener('click', (e) => {
@@ -558,6 +629,7 @@ function select(sel) {
   S.sel = sel;
   S.sel2 = null;
   renderPanel2();
+  highlightCamera();
   if (sel) openPanel(true);
   styleMarkers(S.frames[S.idx]);
   renderPanel();
@@ -576,6 +648,8 @@ $('panel-body').addEventListener('click', (e) => {
   if (e.target.closest('[data-back]')) return select(null);
   const imp = e.target.closest('[data-impact]');
   if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
+  const veh = e.target.closest('[data-track]');
+  if (veh) return select({ kind: 'track', id: veh.dataset.track });
   const a = e.target.closest('.alert');
   if (a) {
     const it = S.items[Number(a.dataset.k)];
@@ -588,8 +662,10 @@ $('panel-body').addEventListener('click', (e) => {
 const THUMBS = {
   photo: `<svg viewBox="0 0 84 62"><rect width="84" height="62" fill="#5b6b4f"/><path d="M0 40 L84 18 L84 30 L0 52Z" fill="#3d4148"/><rect x="46" y="38" width="30" height="16" fill="#7c8577"/>
     <rect x="8" y="8" width="22" height="14" fill="#8a8c84"/><path d="M0 46 L84 24" stroke="#e8e8e8" stroke-dasharray="4 3"/><circle cx="56" cy="22" r="3" fill="#2f6bff" stroke="#fff"/></svg>`,
+  cameras: `<svg viewBox="0 0 84 62"><rect width="84" height="62" fill="#eef1f7"/><path d="M0 40 L84 18 L84 27 L0 49Z" fill="#1f2540"/>
+    <path d="M20 50 L4 20 L40 18Z" fill="#2f6bff" opacity=".25"/><path d="M64 46 L50 14 L82 22Z" fill="#ff4fa3" opacity=".35"/><circle cx="20" cy="50" r="5" fill="#0b2e6e"/><circle cx="64" cy="46" r="5" fill="#0b2e6e"/></svg>`,
   schematic: `<svg viewBox="0 0 84 62"><rect width="84" height="62" fill="#eef1f7"/><rect x="40" y="34" width="36" height="20" rx="2" fill="#dbe4f6"/>
-    <path d="M0 40 L84 18 L84 27 L0 49Z" fill="#1f2540"/><path d="M6 10 Q 40 30 80 6" stroke="#2f6bff" stroke-width="4" fill="none"/><path d="M10 58 L60 30" stroke="#c08a5a" stroke-width="3"/><circle cx="30" cy="18" r="3" fill="#e5383b"/></svg>`,
+    <path d="M0 40 L84 18 L84 27 L0 49Z" fill="#1f2540"/><path d="M6 10 Q 40 30 80 6" stroke="#ff4fa3" stroke-width="4" fill="none"/><path d="M10 58 L60 30" stroke="#c08a5a" stroke-width="3"/><circle cx="30" cy="18" r="3" fill="#e5383b"/></svg>`,
 };
 function renderViews() {
   $('views-thumb').innerHTML = THUMBS[S.view];
@@ -688,14 +764,19 @@ function tick(now) {
 
 (async function start() {
   try {
-    const [scenarios, photo, L] = await Promise.all([
+    const [scenarios, photo, L, camPoints, hasVideo] = await Promise.all([
       loadScenarios(), photoTiles(),
       Promise.all(['aprons', 'buildings', 'runway_areas', 'routes', 'stands', 'holding_points'].map(loadLayer))
         .then(([aprons, buildings, runways, routes, stands, holding_points]) => ({ aprons, buildings, runways, routes, stands, holding_points })),
+      loadLayer('cameras'),
+      fetch('media/camera.mp4', { method: 'HEAD' }).then((r) => r.ok && (r.headers.get('content-type') || '').startsWith('video')).catch(() => false),
     ]);
+    S.hasVideo = hasVideo;
+    L.camcover = await loadLayer('camera_coverage');
     S.scenarios = scenarios;
     if (!map.loaded()) await new Promise((r) => map.once('load', r));
     addLayers(L, photo);
+    addCameras(camPoints, L.camcover);
     applyView('photo');
     await openScenario(scenarios.find((s) => s.id === 'real_scene') || scenarios.find((s) => s.id === 'normal_ops') || scenarios[0], false);
     requestAnimationFrame(tick);

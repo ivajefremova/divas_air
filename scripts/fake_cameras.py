@@ -141,19 +141,67 @@ class Coverage:
         return dict(summary=summary, results=results[:4])
 
 
-def cameras_geojson(cams):
-    feats = []
+def viewshed(cov: Coverage, cam, rays=36):
+    """What the camera can see: its field-of-view wedge, each line of sight cut at the first building."""
+    from shapely.geometry import Polygon
+    pts = [cam["xy"]]
+    for k in range(rays + 1):
+        b = math.radians(cam["heading_deg"] - cam["fov_deg"] / 2 + cam["fov_deg"] * k / rays)
+        end = (cam["xy"][0] + math.sin(b) * cam["range_m"], cam["xy"][1] + math.cos(b) * cam["range_m"])
+        ray = LineString([cam["xy"], end])
+        start = ray.interpolate(15)  # leave the mounting building
+        reach = cam["range_m"]
+        seg = LineString([(start.x, start.y), end])
+        for i in cov.tree.query(seg):
+            hit = cov.blocks[i].intersection(seg)
+            if not hit.is_empty:
+                reach = min(reach, Point(cam["xy"]).distance(hit) )
+        pts.append((cam["xy"][0] + math.sin(b) * reach, cam["xy"][1] + math.cos(b) * reach))
+    return Polygon(pts).buffer(0)
+
+
+def sections(ap: Airport, area):
+    """Named places inside a camera's view, for its dashboard."""
+    seen = []
+    for ref, r in ap.runways.items():
+        if area.intersects(r["poly"]):
+            seen.append(f"Runway {ref}")
+    taxi = sorted({d.get("ref") for u, v, d in ap.graphs["taxiway"].edges(data=True)
+                   if d.get("ref") and area.intersects(LineString(d["pts"]))})
+    seen += [f"Taxiway {t}" for t in taxi][:6]
+    stands = sorted(st["ref"] for st in ap.stands if area.contains(Point(st["xy"])))
+    if stands:
+        seen.append("Stand " + ", ".join(stands[:6]) + (" …" if len(stands) > 6 else ""))
+    for a in ap.aprons:
+        if area.intersects(a["poly"]) and area.intersection(a["poly"]).area > 2000:
+            seen.append(f"Apron near {ap.apron_name((a['poly'].centroid.x, a['poly'].centroid.y))}")
+    roads = sum(1 for u, v, d in ap.graphs["service_road"].edges(data=True) if area.intersects(LineString(d["pts"])))
+    if roads:
+        seen.append("Service roads")
+    return list(dict.fromkeys(seen))
+
+
+def cameras_geojson(cams, ap=None, cov=None):
+    feats, cover = [], []
     for c in cams:
         lon, lat = to_ll(*c["xy"])
         props = {k: v for k, v in c.items() if k != "xy"}
+        if ap is not None:
+            area = viewshed(cov, c)
+            props["sees"] = sections(ap, area)
+            ring = [[round(a, 6) for a in to_ll(x, y)] for x, y in area.exterior.coords]
+            cover.append(dict(type="Feature", properties=dict(camera_id=c["camera_id"]), geometry=dict(type="Polygon", coordinates=[ring])))
         feats.append(dict(type="Feature", properties=props, geometry=dict(type="Point", coordinates=[round(lon, 6), round(lat, 6)])))
-    return dict(type="FeatureCollection", name="cameras_simulated", features=feats)
+    return (dict(type="FeatureCollection", name="cameras_simulated", features=feats),
+            dict(type="FeatureCollection", name="camera_coverage_simulated", features=cover))
 
 
 if __name__ == "__main__":
     ap = Airport()
     cams = build_cameras(ap)
-    OUT.write_text(json.dumps(cameras_geojson(cams)))
+    points, cover = cameras_geojson(cams, ap, Coverage(ap, cams))
+    OUT.write_text(json.dumps(points))
+    OUT.with_name("camera_coverage.geojson").write_text(json.dumps(cover, separators=(",", ":")))
     print(f"{len(cams)} simulated cameras -> {OUT}  ({sum(c['kind']=='stand' for c in cams)} gate, "
           f"{sum(c['kind']=='mast' for c in cams)} mast, {sum(c['kind']=='runway' for c in cams)} runway; "
           f"{sum(c['status']!='online' for c in cams)} offline)")

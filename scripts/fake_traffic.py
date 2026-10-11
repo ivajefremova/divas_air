@@ -46,7 +46,7 @@ class Airport:
                     continue
                 pts = [tuple(map(float, p.split())) for p in d["geometry"].split("(", 1)[1].rstrip(")").split(",")]
                 if not g.has_edge(u, v) or g[u][v]["w"] > float(d["length_m"]):
-                    g.add_edge(u, v, w=float(d["length_m"]), pts=pts)
+                    g.add_edge(u, v, w=float(d["length_m"]), pts=pts, ref=d.get("ref"))
             big = max(nx.connected_components(g), key=len)
             self.graphs[kind] = g.subgraph(big).copy()
         self.runways = {}
