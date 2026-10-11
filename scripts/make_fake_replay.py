@@ -36,7 +36,7 @@ from fake_traffic import Airport, Track, approach_track, baseline, course_at, to
 OUT = C.PROCESSED / "demo" / "replay_fake"
 STEP = P.REPLAY_STEP_S
 SCENE_S = 180
-ONSET = 40          # seconds into the scene
+ONSET = 20          # seconds into the scene: a short calm start, then the event
 DAY = 1792069200.0  # 2026-10-15 13:00 UTC (15:00 in Rome)
 NIGHT = DAY + 9 * 3600
 
@@ -70,7 +70,7 @@ def ev(feature, dim, text, value=None, limit=None, unit=None):
 class Scene:
     def __init__(self, ap, sid, t0, seed, night=False, fog=False):
         self.ap, self.id, self.t0, self.night, self.fog = ap, sid, t0, night, fog
-        self.tracks, self.rng = baseline(ap, t0, SCENE_S, seed=seed)
+        self.tracks, self.rng = baseline(ap, t0, SCENE_S, seed=seed, n_dep=2, n_arr=2, n_parked=3, n_vehicles=12)  # small, readable scenes
         self.effects, self.areas, self.events, self.focus = [], [], [], []
         self.on, self.off = t0 + ONSET, t0 + ONSET + 90
         perm = list(self.rng.permutation(len(self.tracks)))

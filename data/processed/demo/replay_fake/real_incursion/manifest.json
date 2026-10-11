@@ -11,8 +11,8 @@
       "event_id": "ev_real",
       "kind": "real_incursion",
       "title": "Real runway incursion",
-      "t_start": 1792070740.0,
-      "t_end": 1792070830.0,
+      "t_start": 1792070720.0,
+      "t_end": 1792070810.0,
       "track_ids": [
         "synthetic:veh_290:0"
       ]

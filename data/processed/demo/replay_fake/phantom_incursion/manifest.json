@@ -11,10 +11,10 @@
       "event_id": "ev_phantom",
       "kind": "phantom_incursion",
       "title": "Phantom runway incursion",
-      "t_start": 1792069840.0,
-      "t_end": 1792069930.0,
+      "t_start": 1792069820.0,
+      "t_end": 1792069910.0,
       "track_ids": [
-        "synthetic:veh_349:0"
+        "synthetic:veh_319:0"
       ]
     }
   ]

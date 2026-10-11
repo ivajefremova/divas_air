@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <title>Divas Air</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -10,8 +10,11 @@
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="view-photo">
 <div id="map"></div>
+
+<!-- dashed line from the notification to the vehicle -->
+<svg id="link" aria-hidden="true"><path id="link-path"/><circle id="link-dot" r="7"/></svg>
 
 <!-- top left: name, status, clock -->
 <header id="brand" class="card">
@@ -23,19 +26,27 @@
   <div id="clock" class="clock"></div>
 </header>
 
-<!-- top right: demo menu -->
+<!-- top centre: the most important event -->
+<button id="notify" hidden>
+  <span class="n-icon" aria-hidden="true">!</span>
+  <span class="n-text"><b id="notify-title"></b><span id="notify-sub"></span></span>
+</button>
+
+<!-- top right: demos -->
 <div id="demo">
   <button id="demo-btn" class="card pill-btn" aria-expanded="false">Demo</button>
   <div id="demo-menu" class="card menu" hidden>
     <div id="demo-events"></div>
     <div class="menu-sep"></div>
-    <button id="demo-play" class="menu-item"></button>
-    <button id="demo-restart" class="menu-item">Restart</button>
+    <div class="menu-row">
+      <button id="demo-play" class="menu-chip"></button>
+      <button id="demo-restart" class="menu-chip">Restart</button>
+    </div>
     <div id="demo-source" class="menu-note"></div>
   </div>
 </div>
 
-<!-- bottom left: map views -->
+<!-- bottom left: map view + small colour key -->
 <div id="views">
   <button id="views-btn" class="card view-current" aria-expanded="false">
     <span class="thumb" id="views-thumb"></span>
@@ -46,11 +57,11 @@
     <div class="menu-sep"></div>
     <label class="toggle"><input type="checkbox" id="show-aircraft" checked><span></span>Aircraft</label>
     <label class="toggle"><input type="checkbox" id="show-vehicles" checked><span></span>Vehicles</label>
-    <div class="type-key" id="type-key"></div>
   </div>
+  <div id="key" class="card"></div>
 </div>
 
-<!-- right: alerts and details -->
+<!-- right: alerts and the vehicle dashboard -->
 <button id="panel-tab" class="card" aria-controls="panel" aria-expanded="false">
   <span class="tab-icon" aria-hidden="true">‹</span>
   <span id="tab-count" class="tab-count" hidden>0</span>
@@ -58,6 +69,12 @@
 <aside id="panel" class="card" aria-hidden="true">
   <div id="panel-body"></div>
 </aside>
+
+<!-- impact of an area event -->
+<section id="impact" hidden>
+  <button id="impact-close" class="close-btn" aria-label="Close">×</button>
+  <div id="impact-body"></div>
+</section>
 
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="config.js"></script>

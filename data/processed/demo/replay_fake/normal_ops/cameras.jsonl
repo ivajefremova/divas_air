@@ -11,9 +11,9 @@
 {"t":1792069250.0,"checks":{}}
 {"t":1792069255.0,"checks":{}}
 {"t":1792069260.0,"checks":{}}
-{"t":1792069265.0,"checks":{"synthetic:veh_100:0":{"summary":"not_covered","results":[]},"synthetic:veh_116:0":{"summary":"not_covered","results":[]}}}
-{"t":1792069270.0,"checks":{"synthetic:veh_100:0":{"summary":"not_covered","results":[]},"synthetic:veh_116:0":{"summary":"not_covered","results":[]}}}
-{"t":1792069275.0,"checks":{"synthetic:veh_100:0":{"summary":"not_covered","results":[]}}}
+{"t":1792069265.0,"checks":{"fco:8e8f6c:0":{"summary":"seen_at_position","results":[{"camera_id":"CAM-21","target":"reported","outcome":"vehicle_seen","at":[12.249175,41.801094],"confidence":0.61,"distance_m":1013,"reason":null}]},"synthetic:veh_101:0":{"summary":"not_covered","results":[]}}}
+{"t":1792069270.0,"checks":{"fco:8e8f6c:0":{"summary":"seen_at_position","results":[{"camera_id":"CAM-21","target":"reported","outcome":"vehicle_seen","at":[12.24874,41.801014],"confidence":0.63,"distance_m":976,"reason":null}]},"synthetic:veh_101:0":{"summary":"not_covered","results":[]}}}
+{"t":1792069275.0,"checks":{"synthetic:veh_101:0":{"summary":"not_covered","results":[]}}}
 {"t":1792069280.0,"checks":{}}
 {"t":1792069285.0,"checks":{}}
 {"t":1792069290.0,"checks":{}}
