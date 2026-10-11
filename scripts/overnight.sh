@@ -22,7 +22,7 @@ run() {
   done
 }
 
-for n in 5 6 8; do
+for n in 6 8; do
   ok=0
   for try in 1 2 3; do
     run "/build-module $n" "logs/m${n}_try${try}.jsonl"
