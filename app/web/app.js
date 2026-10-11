@@ -166,9 +166,9 @@ map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-rig
 // Icons are never smaller than readable, and grow to their real size when zoomed in (a bus is a bus long).
 function iconScale() {
   const mpp = 156543.03 * Math.cos(41.8 * Math.PI / 180) / 2 ** map.getZoom();  // metres per pixel
-  const lo = isPhone() ? 0.8 : 1;
-  document.documentElement.style.setProperty('--s', Math.min(2.4, Math.max(lo, 0.375 / mpp)).toFixed(2));   // vehicle icons: 1 px = 0.375 m
-  document.documentElement.style.setProperty('--sa', Math.min(3, Math.max(lo, 1.36 / mpp)).toFixed(2));    // aircraft: 28 px = 38 m
+  const lo = isPhone() ? 1.15 : 1.5, loA = isPhone() ? 1.1 : 1.4;
+  document.documentElement.style.setProperty('--s', Math.min(2.6, Math.max(lo, 0.375 / mpp)).toFixed(2));    // vehicle icons: 1 px = 0.375 m
+  document.documentElement.style.setProperty('--sa', Math.min(3, Math.max(loA, 1.36 / mpp)).toFixed(2));    // aircraft: 28 px = 38 m
 }
 map.on('zoom', iconScale);
 iconScale();
@@ -460,7 +460,7 @@ function renderPanel() {
 }
 
 function alertList(items) {
-  const close = '<button class="p-close" data-close aria-label="Close">×</button>';
+  const close = `<button class="p-close" data-close aria-label="Hide">${isPhone() ? '×' : '›'}</button>`;
   if (!items.length) return `${close}<h2 class="p-title">Alerts</h2><div class="empty"><strong>All clear</strong>Every position can be trusted.</div>`;
   return `${close}<h2 class="p-title">Alerts</h2>` + items.map((it, k) => {
     if (it.kind === 'area') {
@@ -479,15 +479,13 @@ const bar = (label, x, major) => `<div class="dim${major ? ' major' : ''}"><span
 function dashboard(id, second = false) {
   const v = S.byTrack[S.idx].get(id);
   const head = second ? '<button class="p-close" data-close2 aria-label="Close">×</button>'
-    : '<button class="p-close" data-close aria-label="Close">×</button><button class="back" data-back>‹ All alerts</button>';
+    : `<button class="p-close" data-close aria-label="Hide">${isPhone() ? '×' : '›'}</button><button class="back" data-back>‹ All alerts</button>`;
   if (!v) return `${head}<div class="empty">No position for this vehicle right now.</div>`;
   const q = quad(v), p = v.position;
   const conf = { low: 1, medium: 2, high: 3 }[v.confidence_level];
-  const sub = [CLASS_NAME[v.asset_class] || v.asset_class, v.severity.zone_name, p.speed_mps != null ? `${Math.round(p.speed_mps * 3.6)} km/h` : null, p.alt_m ? `${Math.round(p.alt_m)} m up` : null].filter(Boolean).join(' · ');
   const dims = Object.entries(v.dimensions).map(([k, x]) => bar(k[0].toUpperCase() + k.slice(1), x)).join('');
   return `${head}
-    <div class="d-head"><div class="d-name">${esc(nameOf(v))}</div><span class="d-state st-${q}">${STATE[q]}</span></div>
-    <div class="d-sub">${esc(sub)}</div>
+    <div class="d-head"><div class="d-name">${esc(nameOf(v))}</div></div>
     <div class="pinkbox"><div class="pb-label">Confidence</div>
       <div class="pb-main">${v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1)} <small>· ${Math.round(v.confidence * 100)} %</small>
       <span class="meter">${[1, 2, 3].map((k) => `<i class="${k <= conf ? 'on' : ''}"></i>`).join('')}</span></div></div>

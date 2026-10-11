@@ -101,7 +101,7 @@ body.panel-open #demo { right: calc(var(--panel-w) + 28px); }
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; transition: right .25s ease; }
 .tab-icon { font-size: 26px; line-height: 1; font-weight: 700; color: var(--blue-ink); transition: transform .25s; }
 .tab-count { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--pink); color: #fff; font-size: 12.5px; font-weight: 800; display: grid; place-items: center; }
-body.panel-open #panel-tab { right: calc(var(--panel-w) + 24px); }
+body.panel-open #panel-tab { display: none; }
 body.panel-open .tab-icon { transform: rotate(180deg); }
 #panel { position: absolute; top: 16px; right: 16px; max-height: calc(100% - 32px); width: var(--panel-w); z-index: 6; transform: translateX(calc(100% + 24px));
   transition: transform .25s ease; display: flex; flex-direction: column; overflow: hidden; }
@@ -164,7 +164,7 @@ body:not(.panel-open) #impact { right: 72px; }
 /* --- markers ------------------------------------------------------------------------------------- */
 .trk { position: relative; width: 26px; height: 26px; cursor: pointer; }
 .trk .icon { position: absolute; inset: 0; display: grid; place-items: center; transition: transform .4s linear; }
-.trk svg { overflow: visible; transform: scale(var(--s, 1)); filter: drop-shadow(0 1px 1.5px rgba(24,32,58,.5)); }
+.trk svg { overflow: visible; transform: scale(var(--s, 1)); filter: drop-shadow(0 0 1.5px rgba(0,0,0,.7)) drop-shadow(0 1px 2px rgba(24,32,58,.5)); }
 .trk.aircraft svg { width: 28px; height: 28px; transform: scale(var(--sa, 1)); }
 .trk.c-widebody svg { width: 36px; height: 36px; }
 .trk.c-regional svg, .trk.c-turboprop svg { width: 23px; height: 23px; }
@@ -185,7 +185,7 @@ body:not(.panel-open) #impact { right: 72px; }
 .trk.s-untrusted .shape { fill: rgba(255, 255, 255, .95); stroke: var(--red); stroke-width: 1.8; stroke-dasharray: 3 2; }
 .trk.s-untrusted .detail, .trk.s-untrusted .beacon { fill: rgba(229, 56, 59, .35); }
 .trk.s-untrusted .band, .trk.s-untrusted .link { stroke: var(--red); }
-.trk.conf-low { opacity: .5; }
+.trk.conf-low { opacity: .75; }
 /* one large static ring, only on the vehicle that caused the event */
 .trk .ring { position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px; border-radius: 50%; pointer-events: none;
   border: 5px solid var(--pink); box-shadow: 0 0 0 2.5px #fff, inset 0 0 0 2px #fff; display: none; }
@@ -270,4 +270,6 @@ body.impact-open #panel2 { right: calc(var(--panel-w) + 28px + 282px); }
   #panel2-body { overflow-y: auto; padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
 }
 #panel2 .d-head, #panel .d-head { padding-right: 44px; }
-@media (min-width: 761px) { #panel .d-head { padding-right: 0; } }
+/* the collapse button lives on the card */
+#panel .p-close { display: block; font-size: 24px; font-weight: 700; }
+#panel .p-title { padding-right: 44px; }
