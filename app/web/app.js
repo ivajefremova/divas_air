@@ -447,6 +447,12 @@ function drawLink() {
 $('notify').addEventListener('click', () => {
   const top = S.top;
   if (!top) return;
+  // take the operator straight to the issue: centre and zoom in on it
+  const t = topTarget();
+  if (t) {
+    const rightPad = isPhone() ? 0 : (top.kind === 'track' ? 560 : 340);
+    map.jumpTo({ center: [t.lon, t.lat], zoom: Math.max(map.getZoom(), top.kind === 'track' ? 16.5 : 15.5), padding: { right: rightPad, top: 90, left: 0, bottom: isPhone() ? 300 : 0 } });
+  }
   if (top.kind === 'track') select({ kind: 'track', id: top.id });
   else openImpact(top.id);
 });
