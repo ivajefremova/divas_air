@@ -87,7 +87,7 @@ const S = {
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hhmmss = (t) => new Date(t * 1000).toISOString().slice(11, 19);
-const nameOf = (v) => v.callsign || `${CLASS_NAME[v.asset_class] || 'Vehicle'} ${(v.asset_id.match(/\d+/) || [v.asset_id])[0]}`;
+const nameOf = (v) => v.callsign || `${CLASS_NAME[v.asset_class] || 'Vehicle'} ${(v.asset_id.match(/\d+/g) || [v.asset_id]).pop()}`;
 const quad = (v) => (v.quadrant === 'trusted' && v.trust_state === 'caution' ? 'caution' : v.quadrant);
 const distM = (a, b) => {
   const dx = (a.lon - b.lon) * 111320 * Math.cos(a.lat * Math.PI / 180), dy = (a.lat - b.lat) * 110540;
@@ -102,26 +102,39 @@ const getJson = (url) => fetch(url).then((r) => (r.ok ? r.json() : null)).catch(
 
 async function loadScenarios() {
   const list = [];
+  // Matteo's replay bundle (module 6) comes first: the whole scene, then one entry per scripted event.
   const real = await getJson(CFG.realBundle + 'manifest.json');
-  if (real) list.push({ id: 'real', title: 'Replay bundle (module 6)', category: 'Pipeline replay', base: CFG.realBundle,
-    t_start: real.t_start, onset_t: real.events[0]?.t_start ?? real.t_start, focus: real.events[0]?.track_ids || [] });
+  const KIND_TEXT = { phantom_incursion: 'Data fault', real_incursion: 'Real event', sector_interference: 'Possible interference', red_team: 'Red team' };
+  if (real) {
+    list.push({ id: 'real_scene', title: 'Full demo scene', category: 'Pipeline replay', base: CFG.realBundle, t_start: real.t_start, onset_t: real.t_start, focus: [], real: true });
+    for (const ev of real.events) {
+      list.push({ id: `real_${ev.event_id}`, title: ev.title.split(':')[0], story: ev.title, category: `${KIND_TEXT[ev.kind] || ev.kind} · pipeline`,
+        base: CFG.realBundle, t_start: real.t_start, onset_t: ev.t_start, focus: ev.track_ids, real: true });
+    }
+  }
+  const covered = new Set((real?.events || []).map((e) => e.kind));  // the real bundle replaces these simulated scenarios
+  const SIM_KIND = { phantom_incursion: 'phantom_incursion', real_incursion: 'real_incursion', sector_interference: 'sector_interference' };
   const idx = await getJson(CFG.scenarioIndex);
   const dir = CFG.scenarioIndex.replace(/index\.json$/, '');
-  for (const sc of idx?.scenarios || []) list.push({ ...sc, base: dir + sc.dir + '/' });
+  for (const sc of idx?.scenarios || []) {
+    if (covered.has(SIM_KIND[sc.id]) || (real && sc.id === 'normal_ops')) continue;
+    list.push({ ...sc, base: dir + sc.dir + '/', category: `${sc.category} · simulated` });
+  }
   if (!list.length) throw new Error('No scenarios found. Run scripts/make_fake_replay.py.');
   return list;
 }
 
 const bundleCache = new Map();
 async function loadBundle(sc) {
-  if (!bundleCache.has(sc.id)) {
+  const key = sc.base;  // the real bundle's entries share one download
+  if (!bundleCache.has(key)) {
     const manifest = await getJson(sc.base + 'manifest.json');
     const text = await (await fetch(sc.base + manifest.frames_file)).text();
     const frames = text.split('\n').filter(Boolean).map((l) => JSON.parse(l));
-    bundleCache.set(sc.id, { manifest, frames, byTrack: frames.map((f) => new Map(f.verdicts.map((v) => [v.track_id, v]))),
-      source: sc.id === 'real' ? 'Replay bundle' : 'Simulated demo data' });
+    bundleCache.set(key, { manifest, frames, byTrack: frames.map((f) => new Map(f.verdicts.map((v) => [v.track_id, v]))),
+      source: sc.real ? 'Pipeline replay bundle (module 6)' : 'Simulated demo data' });
   }
-  return bundleCache.get(sc.id);
+  return bundleCache.get(key);
 }
 
 const loadLayer = (name) => fetch(CFG.layers + name + '.geojson').then((r) => (r.ok ? r.json() : empty()));
@@ -582,7 +595,7 @@ async function openScenario(sc, atAlert = true) {
   S.sel = null;
   S.t = S.manifest.t_start;
   let i = -1;
-  if (atAlert && sc.id !== 'normal_ops') {  // open where the scenario's alert is already showing
+  if (atAlert && sc.id !== 'normal_ops' && sc.id !== 'real_scene') {  // open where the scenario's alert is already showing
     const want = new Set(sc.focus || []), i0 = Math.max(0, Math.floor((sc.onset_t - S.manifest.t_start) / S.manifest.step_s));
     i = S.frames.findIndex((f, k) => k >= i0 && f.verdicts.some((v) => isAlert(v) && (want.has(v.track_id) || !want.size || (want.size > 1 && v.area_alert_id))));
     if (i >= 0) S.t = S.frames[Math.min(i + 1, S.frames.length - 1)].t + 0.2;
@@ -629,7 +642,7 @@ function tick(now) {
   const dt = now ? (now - last) / 1000 : 0;
   last = now || performance.now();
   if (S.playing && now) S.t += dt;
-  if (S.t > S.manifest.t_end) S.t = S.cur && S.cur.id !== 'normal_ops' ? Math.max(S.manifest.t_start, S.cur.onset_t - 5) : S.manifest.t_start;  // loop the demo
+  if (S.t > S.manifest.t_end) S.t = S.cur && !['normal_ops', 'real_scene'].includes(S.cur.id) ? Math.max(S.manifest.t_start, S.cur.onset_t - 5) : S.manifest.t_start;  // loop the demo
   const i = Math.min(S.frames.length - 1, Math.floor((S.t - S.manifest.t_start) / S.manifest.step_s));
   if (i !== S.idx) { S.idx = i; onFrame(); }
   moveMarkers();
@@ -653,7 +666,7 @@ function tick(now) {
     addLayers(L, photo);
     applyView('photo');
     renderTypeKey();
-    await openScenario(scenarios.find((s) => s.id === 'real') || scenarios.find((s) => s.id === 'normal_ops') || scenarios[0], false);
+    await openScenario(scenarios.find((s) => s.id === 'real_scene') || scenarios.find((s) => s.id === 'normal_ops') || scenarios[0], false);
     requestAnimationFrame(tick);
   } catch (err) {
     $('status').textContent = err.message;
