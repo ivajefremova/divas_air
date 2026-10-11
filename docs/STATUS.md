@@ -8,7 +8,7 @@ One row per module. Update it when you start and when you finish a module: state
 | 1 | Ingest | done | 2026-10-10 | fco 1,108,346 rows / 12,688 tracks / 2,781 aircraft / 8 days, typed 97.4 %; baltic 285,211 / 1,730 / 628 / 1 day, typed 87.7 %; control 1,190,201 / 8,020 / 3,506 / 1 day, typed 87.8 %. Rows dropped: 0 (no missing t/lat/lon). Byte-identical reruns, about 12 s for all three | adr_mock, lira: no data; `alt_geom_m`, `heading_deg` 100 % NaN |
 | 2 | Generator | done | 2026-10-10 | 840 scenes (800 ground x 600 s, 40 approach x 1 h), 9,253,309 points, 25,142 tracks; plausible 97.6 % of points; events per cause: technical_error 289, spoofing 236, degraded 230, behavioral 195 (incursion 72, deviate 63, speeding 60), gnss_anomaly 194, interference 169; anomalous points by cause: interference 66.8 %, spoofing 7.7 %, degraded 6.7 %, gnss_anomaly 6.6 %, behavioral 6.6 %, technical_error 5.6 %; plausible vehicle error median 2.85 m (open sky 1.51 m), RMS 4.55, p95 9.34; `make synth` about 220 s | `alt_geom_m` all NaN, so the altitude-drift part of gnss_anomaly and spoofing is a no-op; no over-dwell behavioral mode; technical_error jump always reverts (no held variant); some generator constants are inline in `synth/` instead of `params.py`; plausible share is 97.6 %, not 98 % (see notes) |
 | 3 | Features | done | 2026-10-10 | Over-limit share on clean `fco` (windows with >= 4 fixes and any envelope ratio > 1.5): **0.058 %** (target < 0.1 %; P0 only 0.039 %); held-out days 0.063 %. Runtime: fco 1.1 M points in 31 s, all five sources and calibration in 10 min (synthetic 550 s). Windows: fco 917,001, baltic 410,727, control 2,182,132, synthetic 2,870,487, demo 3,751. Degraded-majority windows: baltic 10.9 %, control 0.07 %, fco 0.03 %. 72 thresholds, 26 fitted | Only depend on these after reading the decisions below: 5 interpretations of the spec keep fco under 0.1 %. All-NaN: `kin_accel_imp_ratio_max` (P1, held back), `sig_alt_div_*` (no `alt_geom_m`), `kin_heading_course_diff_max` on real data (no `heading_deg`). Vehicle taus are fitted on all synthetic scenes: rerun `--calibrate` after module 4 writes `splits.json` |
-| 4 | Models | in progress | 2026-10-11 | AUROC, AUPRC vs baseline; macro-F1; ECE before and after | |
+| 4 | Models | **blocked** (code done, not trained) | 2026-10-11 | Not measured yet: no model trained. `splits.json` written: 502 / 172 / 166 scenes (train / calib / test), every cause in every split. `make accept N=4`: 10 pass (all 9 pure-function tests + splits partition), 10 error on missing model files; `make unit` 84 pass; `make contracts` 13 pass | **Blocker:** the train-scene threshold refit could not be written to `data/reference/dimension_thresholds.csv` (see Module 4 notes). Then run `make train` and `make accept N=4`; run acceptance-verifier. Fleet columns NaN until module 5 |
 | 5 | Fleet | not started | | Baltic red / qualifying cells; control cells above 2 % | |
 | 6 | API | not started | | step latency; seconds to detect each demo event | |
 | 8 | Evaluation | not started | | false alarms per 1,000 track-minutes; median time to detect | |
@@ -137,3 +137,67 @@ Each decision is recorded in the code and can be reverted on its own. The verifi
 - **Control day (clean Europe):** 0.70 % envelope over-limit, led by `kin_vrate_ratio_max` (0.47 %) and "light"-class aircraft at about 200 m/s. This looks like type-to-class mapping outside Italy; not checked further.
 - **Online engine (module 6):** baselines read fixes in (t_end - 330 s, t_end]; the dwell timer is per-track state (`mapfeat.dwell_seconds`). Call `compute_features` with `MapLayers`, or decision 1 changes kinetic values.
 - Map features on fco: 3 ground fixes at LIRF in 8 days. The LIRF ground paths are exercised only on synthetic data and in unit tests.
+
+
+### Module 4 (models), 2026-10-11: blocked before training
+
+**Done and committed** (b29b471, f654d97):
+- `artifacts/models/splits.json`. Scenes are stratified by kind (approach / ground) and by the rarest cause in the scene, seeded with `params.SEED`. Counts are 502 / 172 / 166 scenes (approach 23 / 10 / 7). Every split has every cause. No `base_track_id` crosses splits.
+- Part A, `divas_air.scoring`: `violations`, `dimension_scores`, `normality_score`, `tau_of`. Part A, `scoring.baseline.naive_score`.
+- Part B: `divas_air.models` (`load_bundle`, `ModelBundle`). `python -m divas_air.models.train` covers pass 1, the fleet hook with out-of-fold pass 1, pass 2, cause, isotonic and temperature calibration on calib, test metrics and the model card.
+- Part C, `divas_air.verdict`: smoothing and hysteresis, normality state, confidence, severity, reported cause, evidence, action, `assemble`, `to_contract`.
+- Unit tests: `test_scoring.py`, `test_models_splits.py`, `test_models_train.py` (trains on a small in-memory table, checks byte-identical reruns, runs the fleet hook with a fake module 5), `test_verdict.py`.
+- LightGBM settings are in `params.py` (`LGB_*`, `ECE_BINS`).
+
+**Blocker.** The overnight instructions say to write `splits.json` first, then refit the feature thresholds on training scenes only, then train any model. Steps 1 and 2 worked:
+- The refit was computed: `features.calibrate.fit_thresholds()` reads `splits.json`.
+- Only vehicle taus change, and only slightly. Examples: `kin_course_resid_max` 46.72 -> 47.04, `kin_course_resid_mean` 22.63 -> 22.77, `kin_speed_resid_rel_max` 0.7037 -> 0.7114, `kin_pos_jitter_m` 17.374 -> 17.387. Vehicle windows used: 2,183,823 -> 1,311,153.
+
+Writing the result over `data/reference/dimension_thresholds.csv` was refused twice by the session's permission guard ("irreversible local destruction"). CLAUDE.md also says not to overwrite existing files in `data/reference/`, while section 6 of the contracts names that file as module 3's output. I did not work around the guard. Because the instruction says the refit comes before training, **no model was trained** and the Part 2 acceptance tests fail on missing artifacts.
+
+**To unblock** (about 10 min total), from the repo root with the venv active:
+1. `python -m divas_air.features --calibrate`. This rewrites the thresholds from train scenes, and its `fitted_on` column then says "train scenes". Commit it.
+2. `python -m divas_air.models.train`
+3. `make accept N=4`, then the acceptance-verifier. Report the numbers from `artifacts/models/model_card.json`.
+
+`make train` runs steps 2 and 1 in that order. Run step 1 first by hand. The models read raw feature values, not the thresholds, so the order changes only the dimension scores, the evidence limits and the normality-axis numbers in the card.
+
+#### Decisions for the human (module 4)
+
+1. **Stratification key** for the split: (scene kind, rarest cause present). The spec only says "stratified so each split has every cause".
+2. **Early stopping**: a grouped 20 % of train scenes picks the tree count, floored at `LGB_MIN_TREES` = 50. The final model is refit on all train rows with that count. The spec suggests 300 to 500 trees; early stopping may pick fewer.
+3. **Class weights** are "balanced" (each class has equal total weight) for both the integrity and cause models. ECE before calibration will be high because of this. Isotonic calibration on calib corrects it.
+4. **Pass-1 calibration for fleet degraded flags.** The out-of-fold pass-1 scores of train scenes go through the final model's isotonic map. That map is fitted on calib only.
+5. **Apron baseline "clean train scenes"** means train scenes with no non-plausible window label.
+6. **Naive baseline.** Only pairs with both fixes inside the window count. A pair with dt <= 0 contributes its jump term only, with no infinite speed. A fix is airborne when the domain is aircraft and `on_ground` is not true.
+7. **Axes in the card** use pass-2 calibrated integrity, the one that drives the verdict. The acceptance test also checks pass 1 independently.
+8. **Confidence** treats a NaN `tmp_gap_max_s` as the worst gap (c_gap = 0.25).
+9. **Action texts** are in `verdict.ACTION_TEXT`. They name no numbers, so the "every number with a unit" rule is met trivially. `act_now` says "a {class} is moving unexpectedly in {zone}". Please review the wording before the demo.
+10. **Repo-wide `make lint`** still fails only on the pre-existing issues in `scripts/` and frozen `tests/acceptance/`. `tests/unit/test_helpers.py` (not mine) has one format diff. The module 4 files are clean.
+
+#### Leakage audit (leakage-auditor, 2026-10-11, code read plus runs; no models yet)
+
+No leak found in module 4 code. Checked: scene-level split, input lists, leak guard before every fit, transition rows, calib-only calibration, out-of-fold stacking, real holdout, and baseline parity. The naive baseline on the test rows already measures **AUROC 0.8255, AUPRC 0.1302** (560,546 rows, none missing). Pass 2 must beat these.
+
+Fixed in module 4 after the audit:
+- `load_or_make_splits` used to re-split silently when the feature table gained a scene. It now raises, so a change to the split is always deliberate.
+- Fleet features are now computed per scene. 10 pairs of approach scenes overlap in real time, 6 of them across splits, so pooling them would have mixed splits in the fleet cells.
+
+**For the human: risks outside module 4, not fixed (modules 2 and 3 own them):**
+1. **Generator tell: dropouts (MEDIUM-HIGH).**
+   - Clean synthetic vehicles never have a gap over 10 s or a missing NACp. Interference and technical_error windows do, in 8.6 % and 11.1 % of windows.
+   - Real clean fco aircraft have gaps over 10 s in 37.5 % of windows.
+   - In the synthetic data, any gap therefore means "anomaly", which inflates vehicle AUROC and macro-F1 and the margin over the gap-blind naive baseline.
+   - Fix in module 2: natural dropouts on clean tracks. Until then, also report vehicle metrics on windows without a gap over 10 s before putting a vehicle AUROC on a slide.
+2. **Approach scenes: missing values mean sound (LOW-MEDIUM).**
+   - Only tracks spanning more than 150 s are injected (`synth/approach.py`).
+   - `sig_nacp_median` is NaN in 11.4 % of plausible windows but 0.6 % of interference windows.
+   - Fix: also report approach metrics on windows with NACp and `tmp_n_points >= MIN_POINTS`.
+3. **Aircraft thresholds.**
+   - The aircraft thresholds are fitted on all non-held-out fco hours, including the real base tracks of calib and test approach scenes (6.1 % of fit windows are test-scene hours).
+   - Effect: only the approach `ctx_app_*` taus, which feed `spoofing_median_normality`.
+   - Fix in `features/calibrate.py`: exclude the calib and test approach hours.
+   - Separately, the aircraft `ctx_app_lateral_dev_deg` tau of 57.5 deg effectively disables that check.
+4. **In-sample apron baseline (LOW, mandated by spec).** Clean train scenes feed the apron baseline that their own fleet features are later tested against.
+5. **Same airframes across splits (LOW).** 429 of 1,399 approach aircraft appear in more than one split, on different flights.
+6. **The train-scene threshold refit leaks nothing into the models.** No model input reads the thresholds file, and the vehicle spatial and contextual taus are identical under both fits. The refit is still needed so the `fitted_on` provenance is correct, and the instruction requires it before training.

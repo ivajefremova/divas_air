@@ -38,3 +38,12 @@ def test_split_is_seeded_and_reused(tmp_path):
     path.write_text(json.dumps({**first, "note": "kept"}))
     assert load_or_make_splits(w, path) == first
     assert "note" in json.loads(path.read_text())
+
+
+def test_existing_split_missing_scenes_is_an_error(tmp_path):
+    import pytest
+
+    path = tmp_path / "splits.json"
+    load_or_make_splits(_windows(30), path)
+    with pytest.raises(ValueError, match="does not cover"):
+        load_or_make_splits(_windows(60), path)

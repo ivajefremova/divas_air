@@ -126,7 +126,11 @@ def test_fleet_hook_uses_out_of_fold_scores(tmp_path, monkeypatch):
         return pd.DataFrame({"cell": ["x"], "baseline": [0.02]})
 
     def fleet_features(windows, profile, baseline=None):
-        seen["degraded"] = windows["degraded"].mean()
+        seen.setdefault("calls", 0)
+        seen["calls"] += 1
+        assert windows["t_end"].max() - windows["t_end"].min() < 1000, (
+            "one scene per call"
+        )
         ff = windows[["track_id", "t_end"]].copy()
         for c in registry.FLEET_COLUMNS:
             ff[c] = 0.0
@@ -139,6 +143,7 @@ def test_fleet_hook_uses_out_of_fold_scores(tmp_path, monkeypatch):
     assert card["fleet"] is True
     assert (tmp_path / "baseline_apron.parquet").exists()
     assert 0 < seen["baseline_rows"] < len(w)
+    assert seen["calls"] == w["scene_id"].nunique()
 
 
 def test_ece():

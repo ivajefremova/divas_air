@@ -76,12 +76,21 @@ def split_of(windows: pd.DataFrame, splits: dict[str, list[str]]) -> pd.Series:
 def load_or_make_splits(
     windows: pd.DataFrame, path: Path = SPLITS_PATH
 ) -> dict[str, list[str]]:
-    """Reuse `path` if it covers every scene of `windows`; otherwise write a new split."""
+    """Reuse `path` if it covers every scene of `windows`; write a split only if none exists.
+
+    An existing split that misses scenes is an error, never a silent re-split:
+    thresholds and models fitted on the old train scenes would leak into the new test.
+    """
     scenes = set(windows["scene_id"].astype(str).unique())
     if path.exists():
         s = json.loads(path.read_text())
-        if scenes <= set().union(*(set(s[k]) for k in SPLITS)):
-            return {k: list(s[k]) for k in SPLITS}
+        missing = scenes - set().union(*(set(s[k]) for k in SPLITS))
+        if missing:
+            raise ValueError(
+                f"{path} does not cover {len(missing)} scenes (e.g. {sorted(missing)[:3]}); "
+                "delete it deliberately to re-split, then refit thresholds and retrain"
+            )
+        return {k: list(s[k]) for k in SPLITS}
     s = make_splits(scene_strata(windows))
     check_splits(s, windows)
     path.parent.mkdir(parents=True, exist_ok=True)

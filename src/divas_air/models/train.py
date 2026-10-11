@@ -180,7 +180,17 @@ def add_fleet_features(
     baseline = fleet.apron_baseline(w[train_clean], profile)
     BASELINE_APRON_PATH.parent.mkdir(parents=True, exist_ok=True)
     baseline.to_parquet(BASELINE_APRON_PATH, index=False)
-    ff = fleet.fleet_features(w, profile, baseline)
+    # per scene: approach scenes share real clocks, so pooling would mix scenes and splits
+    scene = windows["scene_id"].astype(str).to_numpy()
+    ff = pd.concat(
+        [
+            fleet.fleet_features(
+                w[scene == s].reset_index(drop=True), profile, baseline
+            )
+            for s in pd.unique(scene)
+        ],
+        ignore_index=True,
+    )
     out = windows.drop(columns=[c for c in registry.FLEET_COLUMNS if c in windows])
     return out.merge(ff[KEYS + registry.FLEET_COLUMNS], on=KEYS, how="left")
 
