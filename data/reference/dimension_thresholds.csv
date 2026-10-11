@@ -1,10 +1,10 @@
 name,domain,tau,scale,n,fitted_on
 kin_speed_resid_max,aircraft,48.1438,20,473522,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-kin_speed_resid_max,vehicle,10,20,2174347,"synthetic clean vehicle windows, all scenes"
+kin_speed_resid_max,vehicle,10,20,1305467,"synthetic clean vehicle windows, train scenes"
 kin_speed_resid_rel_max,aircraft,0.860196,0.7,473522,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-kin_speed_resid_rel_max,vehicle,0.703701,0.7,2174347,"synthetic clean vehicle windows, all scenes"
+kin_speed_resid_rel_max,vehicle,0.71139,0.7,1305467,"synthetic clean vehicle windows, train scenes"
 kin_speed_resid_mean,aircraft,18.0461,10,473522,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-kin_speed_resid_mean,vehicle,5,10,2174347,"synthetic clean vehicle windows, all scenes"
+kin_speed_resid_mean,vehicle,5,10,1305467,"synthetic clean vehicle windows, train scenes"
 kin_speed_ratio_max,aircraft,1.5,1.5,0,registry (envelope)
 kin_speed_ratio_max,vehicle,1.5,1.5,0,registry (envelope)
 kin_accel_ratio_max,aircraft,1.5,1.5,0,registry (envelope)
@@ -22,31 +22,31 @@ kin_vrate_ratio_max,vehicle,1.5,1.5,0,registry (envelope)
 kin_vrate_imp_ratio_max,aircraft,1.5,1.5,0,registry (envelope)
 kin_vrate_imp_ratio_max,vehicle,1.5,1.5,0,registry (envelope)
 kin_course_resid_max,aircraft,45.3628,60,469477,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-kin_course_resid_max,vehicle,46.7159,60,2041537,"synthetic clean vehicle windows, all scenes"
+kin_course_resid_max,vehicle,47.038,60,1226249,"synthetic clean vehicle windows, train scenes"
 kin_course_resid_mean,aircraft,23.7382,30,469477,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-kin_course_resid_mean,vehicle,22.6289,30,2041537,"synthetic clean vehicle windows, all scenes"
+kin_course_resid_mean,vehicle,22.7695,30,1226249,"synthetic clean vehicle windows, train scenes"
 kin_heading_course_diff_max,aircraft,30,60,0,registry default (< 100 clean windows)
-kin_heading_course_diff_max,vehicle,30,60,2090980,"synthetic clean vehicle windows, all scenes"
+kin_heading_course_diff_max,vehicle,30,60,1255790,"synthetic clean vehicle windows, train scenes"
 kin_pos_jitter_m,aircraft,49.8142,30,422658,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-kin_pos_jitter_m,vehicle,17.374,30,2183540,"synthetic clean vehicle windows, all scenes"
+kin_pos_jitter_m,vehicle,17.3867,30,1310994,"synthetic clean vehicle windows, train scenes"
 tmp_gap_max_s,aircraft,212.83,20,474022,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-tmp_gap_max_s,vehicle,10,20,2183823,"synthetic clean vehicle windows, all scenes"
+tmp_gap_max_s,vehicle,10,20,1311153,"synthetic clean vehicle windows, train scenes"
 tmp_staleness_s,aircraft,21.4498,20,474022,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-tmp_staleness_s,vehicle,10,20,2183823,"synthetic clean vehicle windows, all scenes"
+tmp_staleness_s,vehicle,10,20,1311153,"synthetic clean vehicle windows, train scenes"
 tmp_dt_dev_ratio,aircraft,7.53663,2,413896,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-tmp_dt_dev_ratio,vehicle,1,2,1968874,"synthetic clean vehicle windows, all scenes"
+tmp_dt_dev_ratio,vehicle,1,2,1181557,"synthetic clean vehicle windows, train scenes"
 tmp_dup_count,aircraft,0,3,0,registry (fixed)
 tmp_dup_count,vehicle,0,3,0,registry (fixed)
 tmp_nonmono_count,aircraft,0,2,0,registry (fixed)
 tmp_nonmono_count,vehicle,0,2,0,registry (fixed)
 tmp_frozen_run_s,aircraft,5,10,474022,"fco non-held-out 2026-09-29..2026-10-04, with NACp"
-tmp_frozen_run_s,vehicle,5,10,2183823,"synthetic clean vehicle windows, all scenes"
+tmp_frozen_run_s,vehicle,5,10,1311153,"synthetic clean vehicle windows, train scenes"
 tmp_frozen_frac,aircraft,0.3,0.5,0,registry (fixed)
 tmp_frozen_frac,vehicle,0.3,0.5,0,registry (fixed)
 spa_route_dist_max_m,aircraft,25,50,0,registry default (< 100 clean windows)
-spa_route_dist_max_m,vehicle,25,50,2183823,"synthetic clean vehicle windows, all scenes"
+spa_route_dist_max_m,vehicle,25,50,1311153,"synthetic clean vehicle windows, train scenes"
 spa_route_dist_mean_m,aircraft,15,30,0,registry default (< 100 clean windows)
-spa_route_dist_mean_m,vehicle,15,30,2183823,"synthetic clean vehicle windows, all scenes"
+spa_route_dist_mean_m,vehicle,15,30,1311153,"synthetic clean vehicle windows, train scenes"
 spa_offzone_frac,aircraft,0.2,0.6,0,registry (fixed)
 spa_offzone_frac,vehicle,0.2,0.6,0,registry (fixed)
 spa_in_building_frac,aircraft,0.2,0.6,0,registry (fixed)
