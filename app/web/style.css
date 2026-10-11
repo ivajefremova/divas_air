@@ -161,7 +161,7 @@ body.panel-open #panel { display: flex; }
 .empty-feed span { font-size: 13.5px; }
 
 /* --- impact card: the priority queue (left of the dashboard, below the banner, above the compare tray) ------------ */
-#impact { position: absolute; top: 104px; right: var(--right-w); width: 260px; z-index: 7; overflow-y: auto;
+#impact { position: absolute; top: 104px; right: var(--right-w); width: calc(var(--cols, 1) * 228px + 18px); z-index: 7; overflow-y: auto;
   max-height: calc(100% - 104px - var(--gap)); background: var(--navy-3); border: 1px solid var(--navy-line); border-radius: 6px;
   box-shadow: var(--shadow); padding: 14px 12px 10px; }
 body.comparing #impact { max-height: calc(100% - 104px - var(--tray-h) - 2 * var(--gap)); }
@@ -288,3 +288,13 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
 .cmp .sees { margin-bottom: 6px; }
 .cmp .imp { margin-bottom: 4px; padding: 6px 8px; grid-template-columns: 1fr auto; }
 .cmp .footage { height: 90px; margin-top: 8px; }
+
+/* impacted vehicles: grows into columns instead of scrolling */
+.imp-grid { display: grid; grid-template-columns: repeat(var(--cols, 1), 1fr); gap: 5px; }
+#impact .imp { margin: 0; padding: 6px 8px; font-size: 14px; }
+#impact .imp .who small { font-size: 11.5px; }
+#impact .imp b { font-size: 12px; padding: 1px 6px; }
+@media (max-width: 760px) { #impact { width: 100%; } .imp-grid { grid-template-columns: 1fr 1fr; } }
+.close-btn { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border: 0; border-radius: 4px; background: var(--navy-line);
+  color: #fff; font-size: 20px; line-height: 1; z-index: 2; }
+.close-btn:hover { background: var(--pink); }

@@ -642,9 +642,10 @@ function renderImpact() {
   }
   box.hidden = false;
   const level = (v) => v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1);
-  $('impact-body').innerHTML = `<div class="i-label">${members.length ? label : 'No vehicles nearby'}</div>` +
+  box.style.setProperty('--cols', members.length > 10 ? 3 : members.length > 5 ? 2 : 1);  // wider, not taller
+  $('impact-body').innerHTML = `<div class="i-label">${members.length ? label : 'No vehicles nearby'}</div><div class="imp-grid">` +
     members.map((v, k) => `<button class="imp${k < 3 && isAlert(v) ? ' top' : ''}${isAlert(v) ? '' : ' done'}" data-track="${esc(v.track_id)}">
-      <span class="rank">${k + 1}</span><span class="who">${esc(nameOf(v))}<small>${esc(reason(v))}</small></span><b>${level(v)}</b></button>`).join('');
+      <span class="rank">${k + 1}</span><span class="who">${esc(nameOf(v))}<small>${esc(reason(v))}</small></span><b>${level(v)}</b></button>`).join('') + '</div>';
 }
 $('impact-close').addEventListener('click', closeImpact);
 $('impact-body').addEventListener('click', (e) => {
