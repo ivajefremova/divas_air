@@ -62,8 +62,8 @@ def load_layer(name):
 
 
 RUNWAYS = {}
-for f in load_layer("runways"):
-    name = f["properties"]["runway"]
+for f in load_layer("runway_areas"):  # OurAirports outlines, display only
+    name = f["properties"]["ref"]
     poly = transform(to_utm, shape(f["geometry"]))
     box = poly.minimum_rotated_rectangle.exterior.coords
     sides = sorted([LineString([box[i], box[i + 1]]) for i in range(4)], key=lambda s: s.length)

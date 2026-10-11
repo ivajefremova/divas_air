@@ -18,7 +18,7 @@ from divas_air import config as C  # noqa: E402
 
 OUT = C.ROOT / "app" / "web" / "data"
 KEEP = {  # layer -> properties kept
-    "runways": ["runway", "criticality"],
+    "runway_areas": ["ref", "criticality"],  # display-only outlines; runways.geojson is centre lines
     "aprons": ["ref", "name"],
     "taxiway_lines": ["ref"],
     "service_roads": ["name"],

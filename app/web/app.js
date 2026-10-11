@@ -595,7 +595,7 @@ function tick(now) {
     const [bundle, photo, L] = await Promise.all([
       loadBundle(),
       photoTiles(),
-      Promise.all(['aprons', 'buildings', 'runways', 'routes', 'stands', 'holding_points'].map(loadLayer))
+      Promise.all(['aprons', 'buildings', 'runway_areas', 'routes', 'stands', 'holding_points'].map(loadLayer))
         .then(([aprons, buildings, runways, routes, stands, holding_points]) => ({ aprons, buildings, runways, routes, stands, holding_points })),
     ]);
     Object.assign(S, bundle);
