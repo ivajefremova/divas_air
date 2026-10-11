@@ -37,3 +37,5 @@ data/processed/verdicts/
 
 # built demo site (scripts/build_site.py)
 site/
+# ADR dataset: no redistribution (docs/ADR_DATASET.md); points/ already covers adr_mock.parquet
+data/processed/adr/

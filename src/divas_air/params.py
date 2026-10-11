@@ -24,6 +24,26 @@ ZONE_BUFFER_M = 50.0  # "next to" a zone, for severity
 DWELL_MOVE_M = 10.0  # displacement that resets the dwell timer
 APPROACH_FINAL_KM = 10.0  # approach features apply inside this distance
 GLIDESLOPE_DEG = 3.0
+# feature-layer details (specs/03; values the spec states, or module 3 choices noted in STATUS)
+DEGRADED_NACP_BELOW = 8.0  # GPSJam reproduction: a reading is degraded if NACp < 8
+DEGRADED_ELIGIBLE_NACP = 8.0  # ... counted only once the track has reported NACp >= 8
+MIN_HISTORY_S = 30.0  # trailing baselines are NaN until the track has this much history
+MIN_JITTER_POINTS = 5  # quadratic jitter fit needs this many fixes
+TURN_MIN_DPS = 1.0  # turn radius only where the turn rate exceeds this
+# calibrated tau = max(default, this quantile of clean windows)
+THRESHOLD_QUANTILE = 0.999
+THRESHOLD_MIN_N = 100  # fewer clean windows than this: keep the registry default
+# GNSS noise margin for "in a zone" (off-zone, allowed zone, speed limit)
+ZONE_OCCUPANCY_MARGIN_M = 10.0
+APPROACH_ALIGN_DEG = 30.0  # reported course within this of the runway bearing
+# on final: height above threshold <= tan(this) x distance + floor
+APPROACH_CONE_DEG = 6.0
+APPROACH_CONE_FLOOR_M = 150.0
+PHASE_LOW_M = 150.0  # "low" for the phase check, above aerodrome elevation
+PHASE_AXIS_M = 500.0  # farther than this from every runway axis is "away"
+# on_ground with baro altitude this far above the aerodrome
+GROUND_ALT_CONFLICT_M = 300.0
+AIRBORNE_MIN_MPS = 10.0  # airborne fixed-wing slower than this contradicts the flag
 
 # --- labels (specs/03, specs/04) -------------------------------------------
 LABEL_POS_FRAC = 1.0 / 3.0  # window is anomalous if >= this share of its points is
@@ -55,6 +75,23 @@ SEED = 42
 SPLIT_FRACTIONS = {"train": 0.6, "calib": 0.2, "test": 0.2}  # by scene_id
 N_FOLDS = 5  # GroupKFold over train scenes, for out-of-fold pass-1 scores
 REAL_HOLDOUT_DAYS = 2  # last N days of `fco` are never seen by training
+# LightGBM, shared by the three models. Modest capacity: the features carry the physics.
+LGB_PARAMS = {
+    "learning_rate": 0.05,
+    "num_leaves": 31,
+    "min_data_in_leaf": 50,
+    "feature_fraction": 1.0,
+    "bagging_fraction": 1.0,
+    "deterministic": True,
+    "force_row_wise": True,
+    "num_threads": 8,
+    "verbosity": -1,
+}
+LGB_MAX_TREES = 500
+LGB_MIN_TREES = 50  # floor on the early-stopped tree count
+LGB_EARLY_STOP = 50  # rounds without improvement on the grouped validation fold
+LGB_VALID_FRAC = 0.2  # share of train scenes held out for early stopping
+ECE_BINS = 15
 
 
 # --- fleet layer (specs/05) -------------------------------------------------
@@ -95,11 +132,21 @@ REGIONAL = FleetProfile(
 )
 FLEET_PROFILES = {p.name: p for p in (APRON, REGIONAL)}
 HALO_SIGMA_M = 150.0  # Gaussian kernel of live halos
+# static halos: rings where the building elevation angle crosses these (degrees)
+HALO_ELEVATION_DEG = (45.0, 30.0, 15.0)
+HALO_SIMPLIFY_M = 1.0  # simplification tolerance of static halo polygons
 FORECAST_HORIZONS_S = (30, 60)
 
 # --- API (specs/06) ---------------------------------------------------------
 REPLAY_STEP_S = 5  # = STRIDE_S
 HISTORY_S = 300  # integrity history shown on the verdict card
+# Online engine: points kept per track. Features are recomputed over them at every
+# step, so the engine matches the batch pipeline as long as a track is shorter than
+# this (dwell timers and per-track baselines start at the oldest kept fix).
+ENGINE_KEEP_S = 900.0
+ENGINE_MAX_CATCHUP_STEPS = (
+    720  # POST /tracks steps at most this many grid times (1 h) per call
+)
 
 # --- map layers (specs/02) --------------------------------------------------
 # Half widths used to turn OSM centerlines and points into zone polygons.
@@ -127,9 +174,14 @@ BUILDING_LEVEL_M = 3.0
 # ASSUMPTION: the Decimeter-derived error model is not in data/ (DATA_INVENTORY
 # lists no path), so these are parametric stand-ins with the same shape:
 # open-sky sigma, scaled up with the highest building elevation angle.
-GNSS_OPEN_SIGMA_M = (
-    1.5  # per-axis 1-sigma in open sky (EPU 3.7 m -> NACp 10, as on fco)
-)
+GNSS_MODEL_OPEN_SIGMA_M = 1.5  # per-axis 1-sigma of the parametric model in open sky
+# The model's absolute values give an open-sky median horizontal error of 1.79 m
+# (Rayleigh median 1.177 x per-axis sigma, white term included). Scaled so the
+# open-sky median is about 1.5 m. The scale multiplies every sigma, so the
+# relative growth with obstruction is unchanged; static halos (module 5) read
+# GNSS_OPEN_SIGMA_M and get the same scale.
+GNSS_ERROR_SCALE = 0.84
+GNSS_OPEN_SIGMA_M = GNSS_MODEL_OPEN_SIGMA_M * GNSS_ERROR_SCALE  # EPU 3.1 m -> NACp 10
 GNSS_OBSTRUCTED_RATIO = 4.0  # error ratio at >= GNSS_FULL_OBSTRUCTION_DEG vs open sky
 GNSS_FULL_OBSTRUCTION_DEG = 45.0
 GNSS_WHITE_FRAC = 0.15  # white term, as a share of the Gauss-Markov sigma
@@ -146,3 +198,8 @@ T_JITTER_S = 0.05  # timestamp jitter, uniform +-
 WORK_RADIUS_M = (
     1200.0  # vehicle destinations lie within this of the scene's work center
 )
+SYNTH_GROUND_SCENES = 800  # enough for >= 150 events of every cause
+# behavioral speeding: true speed = zone limit x U(ratio range), kept under the class max
+SPEEDING_RATIO = (1.2, 1.8)
+SPEEDING_CLASS_MARGIN = 0.95  # speeding stays below this share of the class max speed
+SPEEDING_MIN_S = 20.0  # a speeding stretch lasts at least this long

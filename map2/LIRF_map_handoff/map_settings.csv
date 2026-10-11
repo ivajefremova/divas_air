@@ -1,0 +1,21 @@
+name;value;unit;meaning
+taxiway_width_m;23;m;Paved width of a taxiway (ICAO code E is about 23 m). The taxiway area is the centerline buffered by half this width. ASSUMPTION
+taxilane_width_m;15;m;Paved width of an apron taxilane. ASSUMPTION
+gnss_tolerance_m;20;m;Extra margin around taxiway areas for GPS noise (typically 3-10 m). Points inside this margin are not flagged. ASSUMPTION
+corridor_length_m;18000;m;How far each approach corridor extends out from the runway end (guide: 15-20 km). ASSUMPTION
+corridor_half_angle_deg;7.5;deg;How fast the corridor widens on each side (guide: 5-10 deg). ASSUMPTION
+corridor_start_half_width_m;150;m;Half-width of the corridor at the runway end (ICAO approach surface inner edge is about 300 m wide). ASSUMPTION
+taxiway_max_speed_kt;25;kt;Max taxi speed on straight taxiways (guide: 20-30 kt). ASSUMPTION
+taxilane_max_speed_kt;10;kt;Max taxi speed on apron taxilanes. ASSUMPTION
+service_road_max_speed_kmh;30;km/h;Max speed for vehicles on airside service roads. ASSUMPTION
+apron_vehicle_speed_kmh;25;km/h;Max speed for ground vehicles on aprons (aprons layer speed_limit_kmh). ASSUMPTION
+near_runway_vehicle_speed_kmh;30;km/h;Max speed for vehicles on a runway or inside its strip, only with ATC clearance (runways and runway_strip speed_limit_kmh). ASSUMPTION
+parking_max_dwell_min;60;min;Max time a vehicle may stay in a restricted parking / staging area (restricted_parking max_dwell_min). ASSUMPTION
+taxiway_area_vehicle_speed_kmh;20;km/h;Max speed for ground vehicles inside the taxiway area (taxiway_area speed_limit_kmh). ASSUMPTION
+stand_vehicle_speed_kmh;10;km/h;Max speed for ground vehicles at an aircraft stand (stands speed_limit_kmh). ASSUMPTION
+holding_area_vehicle_speed_kmh;10;km/h;Max speed for vehicles at a runway holding point / holding area (holding_points and runway_holding_area speed_limit_kmh). ASSUMPTION
+fuel_zone_vehicle_speed_kmh;10;km/h;Max speed for vehicles inside a fuel station zone (sensitive_zones kind=fuel speed_limit_kmh). ASSUMPTION
+parking_vehicle_speed_kmh;10;km/h;Max speed for vehicles inside restricted parking / staging areas (restricted_parking speed_limit_kmh). ASSUMPTION
+holding_area_radius_m;25;m;Radius of the circle drawn around each runway holding point (runway_holding_area zones). ASSUMPTION
+runway_strip_half_width_m;140;m;Runway strip width on each side of the centerline (ICAO code 4 instrument runway). ASSUMPTION
+runway_strip_end_extension_m;60;m;How far the runway strip extends past each runway end (ICAO). ASSUMPTION

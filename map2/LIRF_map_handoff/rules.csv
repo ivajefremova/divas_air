@@ -1,0 +1,45 @@
+zone_type;zone_kind;layer;asset_type;allowed;max_speed_kmh;max_dwell_min;requires_clearance;direction;setting;source;notes
+runway;runway;runways;aircraft;yes;;;yes;runway_in_use;;assumption;Aircraft speed on runways is not checked (take-off/landing)
+runway;runway;runways;handling;no;;;;;;assumption;Handling vehicles never enter a runway
+runway;runway;runways;sar;yes;30;;yes;any;near_runway_vehicle_speed_kmh;assumption;Emergency response may exceed the limit; flag but do not treat as attack on its own
+runway;runway;runways;service;yes;30;;yes;any;near_runway_vehicle_speed_kmh;assumption;Runway inspection / maintenance only, with ATC clearance
+restricted;runway_strip;sensitive_zones;aircraft;yes;;;yes;any;;assumption;Strip around the runway
+restricted;runway_strip;sensitive_zones;handling;no;;;;;;assumption;
+restricted;runway_strip;sensitive_zones;sar;yes;30;;yes;any;near_runway_vehicle_speed_kmh;assumption;
+restricted;runway_strip;sensitive_zones;service;yes;30;;yes;any;near_runway_vehicle_speed_kmh;assumption;
+restricted;runway_holding_area;sensitive_zones;aircraft;yes;;;yes;stop_before_runway;;assumption;Must stop and wait for clearance before entering the runway
+restricted;runway_holding_area;sensitive_zones;handling;no;;;;;;assumption;
+restricted;runway_holding_area;sensitive_zones;sar;yes;10;;yes;stop_before_runway;holding_area_vehicle_speed_kmh;assumption;
+restricted;runway_holding_area;sensitive_zones;service;yes;10;;yes;stop_before_runway;holding_area_vehicle_speed_kmh;assumption;
+taxiway;taxiway;taxiway_area;aircraft;yes;46;;no;follow_one_way;taxiway_max_speed_kt;assumption;25 kt = 46 km/h; one_way attribute on taxiway_lines
+taxiway;taxiway;taxiway_area;handling;no;;;;;;assumption;Crossing only at marked points (not modelled)
+taxiway;taxiway;taxiway_area;sar;yes;20;;no;any;taxiway_area_vehicle_speed_kmh;assumption;
+taxiway;taxiway;taxiway_area;service;no;;;;;;assumption;Crossing only at marked points (not modelled)
+taxiway;taxilane;taxiway_area;aircraft;yes;18;;no;follow_one_way;taxilane_max_speed_kt;assumption;10 kt = 18.5 km/h
+taxiway;taxilane;taxiway_area;handling;yes;20;;no;any;taxiway_area_vehicle_speed_kmh;assumption;
+taxiway;taxilane;taxiway_area;sar;yes;20;;no;any;taxiway_area_vehicle_speed_kmh;assumption;
+taxiway;taxilane;taxiway_area;service;no;;;;;;assumption;
+apron;apron;aprons;aircraft;yes;18;;no;any;taxilane_max_speed_kt;assumption;Aircraft on aprons follow taxilane speed
+apron;apron;aprons;handling;yes;25;;no;any;apron_vehicle_speed_kmh;assumption;
+apron;apron;aprons;sar;yes;25;;no;any;apron_vehicle_speed_kmh;assumption;
+apron;apron;aprons;service;yes;25;;no;any;apron_vehicle_speed_kmh;assumption;
+stand;stand;stands;aircraft;yes;;;no;any;;assumption;
+stand;stand;stands;handling;yes;10;;no;any;stand_vehicle_speed_kmh;assumption;Stands are points: use a radius around the point
+stand;stand;stands;sar;yes;10;;no;any;stand_vehicle_speed_kmh;assumption;
+stand;stand;stands;service;yes;10;;no;any;stand_vehicle_speed_kmh;assumption;
+other;service_road;service_roads;aircraft;no;;;;;;assumption;
+other;service_road;service_roads;handling;yes;30;;no;any;service_road_max_speed_kmh;assumption;
+other;service_road;service_roads;sar;yes;30;;no;any;service_road_max_speed_kmh;assumption;
+other;service_road;service_roads;service;yes;30;;no;any;service_road_max_speed_kmh;assumption;
+parking;restricted_parking;restricted_parking;aircraft;no;;;;;;assumption;
+parking;restricted_parking;restricted_parking;handling;yes;10;60;no;any;parking_max_dwell_min;assumption;Speed: parking_vehicle_speed_kmh
+parking;restricted_parking;restricted_parking;sar;yes;10;60;no;any;parking_max_dwell_min;assumption;Speed: parking_vehicle_speed_kmh
+parking;restricted_parking;restricted_parking;service;yes;10;60;no;any;parking_max_dwell_min;assumption;Speed: parking_vehicle_speed_kmh
+restricted;fuel;sensitive_zones;aircraft;no;;;;;;assumption;
+restricted;fuel;sensitive_zones;handling;yes;10;;no;any;fuel_zone_vehicle_speed_kmh;assumption;Authorised vehicles only
+restricted;fuel;sensitive_zones;sar;yes;10;;no;any;fuel_zone_vehicle_speed_kmh;assumption;
+restricted;fuel;sensitive_zones;service;yes;10;;no;any;fuel_zone_vehicle_speed_kmh;assumption;Authorised vehicles only
+building;building;buildings;aircraft;no;0;;;;;assumption;Except hangars for maintenance (not modelled)
+building;building;buildings;handling;no;0;;;;;assumption;A track inside a building footprint is a likely GNSS error
+building;building;buildings;sar;no;0;;;;;assumption;
+building;building;buildings;service;no;0;;;;;assumption;

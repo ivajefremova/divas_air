@@ -1,0 +1,257 @@
+{
+ "git_sha": "d9b8d4b28d755821e9685a01073c6cf9af7d45b9",
+ "seed": 42,
+ "fleet": true,
+ "inputs": {
+  "integrity_p1": [
+   "kin_speed_resid_max",
+   "kin_speed_resid_rel_max",
+   "kin_speed_resid_mean",
+   "kin_speed_ratio_max",
+   "kin_accel_ratio_max",
+   "kin_accel_imp_ratio_max",
+   "kin_turn_rate_ratio_max",
+   "kin_turn_rate_imp_ratio_max",
+   "kin_turn_radius_ratio_max",
+   "kin_vrate_ratio_max",
+   "kin_vrate_imp_ratio_max",
+   "kin_course_resid_max",
+   "kin_course_resid_mean",
+   "kin_heading_course_diff_max",
+   "kin_pos_jitter_m",
+   "tmp_n_points",
+   "tmp_gap_max_s",
+   "tmp_staleness_s",
+   "tmp_dt_dev_ratio",
+   "tmp_dup_count",
+   "tmp_nonmono_count",
+   "tmp_frozen_run_s",
+   "tmp_frozen_frac",
+   "sig_nacp_median",
+   "sig_nacp_min",
+   "sig_nacp_drop",
+   "sig_nic_median",
+   "sig_nic_drop",
+   "sig_sil_min",
+   "sig_degraded_frac",
+   "sig_degraded_majority",
+   "sig_alt_div_dev_max_m",
+   "sig_alt_div_rate_max"
+  ],
+  "integrity_p2": [
+   "kin_speed_resid_max",
+   "kin_speed_resid_rel_max",
+   "kin_speed_resid_mean",
+   "kin_speed_ratio_max",
+   "kin_accel_ratio_max",
+   "kin_accel_imp_ratio_max",
+   "kin_turn_rate_ratio_max",
+   "kin_turn_rate_imp_ratio_max",
+   "kin_turn_radius_ratio_max",
+   "kin_vrate_ratio_max",
+   "kin_vrate_imp_ratio_max",
+   "kin_course_resid_max",
+   "kin_course_resid_mean",
+   "kin_heading_course_diff_max",
+   "kin_pos_jitter_m",
+   "tmp_n_points",
+   "tmp_gap_max_s",
+   "tmp_staleness_s",
+   "tmp_dt_dev_ratio",
+   "tmp_dup_count",
+   "tmp_nonmono_count",
+   "tmp_frozen_run_s",
+   "tmp_frozen_frac",
+   "sig_nacp_median",
+   "sig_nacp_min",
+   "sig_nacp_drop",
+   "sig_nic_median",
+   "sig_nic_drop",
+   "sig_sil_min",
+   "sig_degraded_frac",
+   "sig_degraded_majority",
+   "sig_alt_div_dev_max_m",
+   "sig_alt_div_rate_max",
+   "flt_n_others",
+   "flt_deg_rate_loo",
+   "flt_deg_count_loo",
+   "flt_cell_flagged_loo",
+   "flt_nbr_flagged_frac"
+  ],
+  "cause": [
+   "kin_speed_resid_max",
+   "kin_speed_resid_rel_max",
+   "kin_speed_resid_mean",
+   "kin_speed_ratio_max",
+   "kin_accel_ratio_max",
+   "kin_accel_imp_ratio_max",
+   "kin_turn_rate_ratio_max",
+   "kin_turn_rate_imp_ratio_max",
+   "kin_turn_radius_ratio_max",
+   "kin_vrate_ratio_max",
+   "kin_vrate_imp_ratio_max",
+   "kin_course_resid_max",
+   "kin_course_resid_mean",
+   "kin_heading_course_diff_max",
+   "kin_pos_jitter_m",
+   "tmp_n_points",
+   "tmp_gap_max_s",
+   "tmp_staleness_s",
+   "tmp_dt_dev_ratio",
+   "tmp_dup_count",
+   "tmp_nonmono_count",
+   "tmp_frozen_run_s",
+   "tmp_frozen_frac",
+   "sig_nacp_median",
+   "sig_nacp_min",
+   "sig_nacp_drop",
+   "sig_nic_median",
+   "sig_nic_drop",
+   "sig_sil_min",
+   "sig_degraded_frac",
+   "sig_degraded_majority",
+   "sig_alt_div_dev_max_m",
+   "sig_alt_div_rate_max",
+   "spa_route_dist_max_m",
+   "spa_route_dist_mean_m",
+   "spa_offzone_frac",
+   "spa_in_building_frac",
+   "spa_off_airport",
+   "spa_zone_crit_max",
+   "ctx_zone_speed_ratio_max",
+   "ctx_type_violation_crit_max",
+   "ctx_dwell_ratio",
+   "ctx_ground_alt_conflict",
+   "ctx_phase_conflict_frac",
+   "ctx_app_lateral_dev_deg",
+   "ctx_app_glide_dev_deg",
+   "ctx_app_descent_dev_ratio",
+   "ctx_identity_mismatch",
+   "flt_n_others",
+   "flt_deg_rate_loo",
+   "flt_deg_count_loo",
+   "flt_cell_flagged_loo",
+   "flt_nbr_flagged_frac"
+  ]
+ },
+ "counts": {
+  "train": {
+   "scenes": 502,
+   "rows": 1705039
+  },
+  "calib": {
+   "scenes": 172,
+   "rows": 590177
+  },
+  "test": {
+   "scenes": 166,
+   "rows": 560546
+  }
+ },
+ "trees": {
+  "integrity_p1": 314,
+  "integrity_p2": 356,
+  "cause": 497
+ },
+ "test": {
+  "integrity_p1": {
+   "auroc": 0.9893800156893561,
+   "auprc": 0.9582532453740809
+  },
+  "integrity_p2": {
+   "auroc": 0.9890510691709745,
+   "auprc": 0.9577655886340957
+  },
+  "baseline": {
+   "auroc": 0.8254992925777301,
+   "auprc": 0.13023607055497488
+  },
+  "calibration": {
+   "ece_before": 0.03969899620406132,
+   "ece_after": 0.0006345386976699842
+  },
+  "cause": {
+   "macro_f1": 0.5275875703238001,
+   "majority_macro_f1": 0.14057050677044697,
+   "labels": [
+    "plausible",
+    "degraded",
+    "technical_error",
+    "gnss_anomaly",
+    "possible_interference",
+    "possible_spoofing",
+    "behavioral_anomaly"
+   ],
+   "confusion_matrix": [
+    [
+     510709,
+     2019,
+     6466,
+     464,
+     12,
+     17687,
+     5527
+    ],
+    [
+     12,
+     1135,
+     5,
+     65,
+     5,
+     11,
+     0
+    ],
+    [
+     126,
+     0,
+     675,
+     1,
+     0,
+     100,
+     58
+    ],
+    [
+     42,
+     94,
+     1,
+     1045,
+     7,
+     27,
+     5
+    ],
+    [
+     0,
+     63,
+     0,
+     9,
+     11890,
+     0,
+     0
+    ],
+    [
+     113,
+     15,
+     76,
+     9,
+     9,
+     1132,
+     43
+    ],
+    [
+     73,
+     0,
+     5,
+     0,
+     2,
+     36,
+     773
+    ]
+   ]
+  },
+  "axes": {
+   "behavioral_median_integrity": 99.88462425967232,
+   "behavioral_abnormal_share": 0.4915635545556805,
+   "spoofing_median_normality": 66.66666666666666
+  }
+ }
+}
