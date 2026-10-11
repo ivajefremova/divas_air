@@ -38,7 +38,7 @@ def run_apron(source: str) -> None:
     from divas_air.pipeline import fleet_tables
 
     feats = pd.read_parquet(config.PROCESSED / "features" / f"{source}.parquet")
-    cells, _, _ = fleet_tables(feats)
+    cells = fleet_tables(feats).cells
     FLEET_DIR.mkdir(parents=True, exist_ok=True)
     cells.to_parquet(cells_path(source, "apron"), index=False)
     print(
