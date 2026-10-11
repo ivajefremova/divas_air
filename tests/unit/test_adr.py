@@ -69,10 +69,20 @@ def test_class_mapping_and_domains():
     by = pts.groupby("asset_id").first()
     assert by.loc["ACF-0001", "domain"] == "aircraft"
     assert by.loc["ACF-0001", "asset_class"] == "other"
-    # no envelope fits a fork lift: it keeps its ADR name, and no envelope check applies
+    # a fork lift takes the nearest envelope (approximate match)
     assert by.loc["FLT-0002", "domain"] == "vehicle"
-    assert by.loc["FLT-0002", "asset_class"] == "fork_lift"
+    assert by.loc["FLT-0002", "asset_class"] == "baggage_tractor"
     assert (pts["typecode_raw"] == pts["typecode"]).all()
+    assert counts["class_no_envelope"] == 0
+
+
+def test_class_without_envelope_keeps_its_name():
+    raw = _raw()
+    raw.loc[raw["asset_id"] == "FLT-0002", "asset_class"] = "cleaning_van"
+    pts, _, counts = adr.from_asset_tracks(raw)
+    assert (
+        pts.loc[pts["asset_id"] == "FLT-0002", "asset_class"] == "cleaning_van"
+    ).all()
     assert counts["class_no_envelope"] == 6
 
 
@@ -209,7 +219,7 @@ def test_zone_access_follows_adr_groups():
     assert not za[("runway", "baggage_tractor")]
     assert za[("runway", "sar_vehicle")] and za[("runway", "follow_me")]
     assert not za[("holding_point", "sar_vehicle")]  # stricter than the default table
-    assert za[("stand", "fork_lift")]  # unmatched class, known group
+    assert za[("stand", "cleaning_van")]  # unmatched class, known group
     assert not za[("service_road", "narrowbody")]
 
 

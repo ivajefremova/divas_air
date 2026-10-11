@@ -265,3 +265,17 @@ Area alerts are not leave-one-out, but they are not a model input.
 2. **The interference vs technical_error contrast is partly true by construction.** The generator defines interference as co-located tracks degraded together. "99.4 % vs 0 %" on synthetic data should not be the slide's only evidence; module 8 should add the real Baltic day.
 3. **Module 8 must filter verdicts to `splits.json["test"]`** and assert no train or calib scene is in the evaluated rows. Train scenes have in-sample pass 1, pass 2 and cause; calib scenes were used for calibration.
 4. Approach scenes get no fleet signal (`flt_n_others` is 0 on every non-plausible approach row): approach interference rests on per-track features only.
+
+### ADR per-sample result (`python -m divas_air.adr`), 2026-10-11
+
+Details, rules and every assumption: `docs/ADR_DATASET.md` section 7. Package `src/divas_air/adr/`, its own tunables, no edits to engine modules or `params.py`. Output `data/processed/adr/asset_tracks_scored.{parquet,csv}` (gitignored, ADR row order, no positions), 17 s, byte-identical reruns. Dataset version 1.2.
+
+- **ADR's speed and heading are computed from consecutive positions** (every sample, rounding error only). Dead reckoning from them cannot see position errors, so the detectors dead-reckon from the >= 5 s velocity implied by the positions (decision confirmed by the human). implausible_speed and heading_incoherent: 0 samples on ADR.
+- Trust (engine integrity, adr layer profile): windows trusted 98.05 % / caution 1.84 % / untrusted 0.11 %.
+- Signal labels: 2,207 samples (0.33 %, 72 tracks): multipath 1,331, frozen 637, altitude 162, jump 60, fix_loss 18. gnss_drift is not detectable from positions alone.
+- Behaviour labels: 12,905 samples (1.94 %, 188 tracks): runway_incursion 9,549 (105 tracks), unauthorized_zone 1,876, overspeed 1,503, proximity 4, unexpected_stop 0. wrong_way is not detected (no direction; no corridor has a one-way share >= 80 %).
+- **Suppressed phantoms: 0 on ADR** (no ADR position error falls on a zone violation). On synthetic vehicles: 268 runway-incursion and 6,222 unauthorized-zone samples suppressed.
+- Detectors vs engine: of the 2,207 signal-labeled samples, the engine trusts 78 %.
+- Synthetic recall: frozen 0.985, jump 0.741, multipath 0.859, zone violation 0.305, overspeed 0.252, fix_loss 0.057, drift 0. Precision is low (0.003 to 0.20; frozen 1.0) because the generator's noise floor is about 3x ADR's.
+- Class map: fork_lift -> baggage_tractor, cargo_truck and gpu_unit -> bus, works_vehicle -> follow_me (approx). adr_mock was re-ingested.
+- Open: 105 of 603 tracks carry runway_incursion (handling group in ADR's runway critical area). This rests on our group assumption; check it against "most tracks are regular".
