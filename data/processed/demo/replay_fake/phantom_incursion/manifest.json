@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "airport": "LIRF",
+  "t_start": 1792069800.0,
+  "t_end": 1792069980.0,
+  "step_s": 5,
+  "n_frames": 37,
+  "frames_file": "frames.jsonl",
+  "events": [
+    {
+      "event_id": "ev_phantom",
+      "kind": "phantom_incursion",
+      "title": "Phantom runway incursion",
+      "t_start": 1792069840.0,
+      "t_end": 1792069930.0,
+      "track_ids": [
+        "synthetic:veh_349:0"
+      ]
+    }
+  ]
+}

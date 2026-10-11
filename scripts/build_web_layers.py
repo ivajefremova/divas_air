@@ -24,7 +24,7 @@ KEEP = {  # layer -> properties kept
     "service_roads": ["name"],
     "stands": ["ref"],
     "holding_points": ["ref"],
-    "buildings": ["name", "aeroway", "building"],
+    "buildings": ["name", "aeroway"],
 }
 
 
@@ -40,6 +40,16 @@ def in_box(geom) -> bool:
     return lon0 <= c[0] <= lon1 and lat0 <= c[1] <= lat1
 
 
+def building_height(pr) -> float:
+    """Metres, for the 3D traffic view: OSM height, else levels x 3.5 m, else a default by type."""
+    for key, mult in (("height", 1.0), ("building:levels", 3.5)):
+        try:
+            return round(float(str(pr.get(key)).replace("m", "").strip()) * mult, 1)
+        except (TypeError, ValueError):
+            pass
+    return {"terminal": 22.0, "hangar": 16.0}.get(pr.get("aeroway"), 8.0)
+
+
 def slim(name: str) -> dict:
     src = json.loads((C.LAYERS / f"{name}.geojson").read_text())
     feats = []
@@ -48,6 +58,8 @@ def slim(name: str) -> dict:
         if not g or (name == "buildings" and not in_box(g)):
             continue
         props = {k: f["properties"].get(k) for k in KEEP[name] if f["properties"].get(k) is not None}
+        if name == "buildings":
+            props["h"] = building_height(f["properties"])
         feats.append({"type": "Feature", "properties": props,
                       "geometry": {"type": g["type"], "coordinates": rnd(g["coordinates"])}})
     return {"type": "FeatureCollection", "features": feats}

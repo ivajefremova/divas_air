@@ -34,3 +34,6 @@ data/processed/verdicts/
 
 # macOS
 .DS_Store
+
+# built demo site (scripts/build_site.py)
+site/

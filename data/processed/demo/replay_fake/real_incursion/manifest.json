@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "airport": "LIRF",
+  "t_start": 1792070700.0,
+  "t_end": 1792070880.0,
+  "step_s": 5,
+  "n_frames": 37,
+  "frames_file": "frames.jsonl",
+  "events": [
+    {
+      "event_id": "ev_real",
+      "kind": "real_incursion",
+      "title": "Real runway incursion",
+      "t_start": 1792070740.0,
+      "t_end": 1792070830.0,
+      "track_ids": [
+        "synthetic:veh_290:0"
+      ]
+    }
+  ]
+}
