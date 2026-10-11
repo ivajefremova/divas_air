@@ -39,6 +39,13 @@ const ALERT_WORD = {
   data_fault: 'Position unreliable', silent_risk: 'Position unreliable',
 };
 const COLORS = { blue: '#2f6bff', pink: '#ff4fa3', red: '#e5383b', amber: '#f5a524', ink: '#18203a' };
+// vehicle colour by type while trusted (planes stay blue); amber, red and pink stay reserved for problems
+const TYPE_COLOR = {
+  bus: '#0d9488', fuel_truck: '#7c3aed', catering_truck: '#65a30d',
+  baggage_tractor: '#64748b', follow_me: '#0ea5e9', sar_vehicle: '#1f2937',
+};
+const TYPE_KEY = [['bus', 'Bus'], ['fuel_truck', 'Fuel truck'], ['catering_truck', 'Catering'],
+  ['baggage_tractor', 'Tractor'], ['follow_me', 'Follow-me'], ['sar_vehicle', 'SAR']];
 
 const PLANE = '<svg viewBox="0 0 24 24"><path class="shape" d="M12 1.5c.9 0 1.5.8 1.5 1.8V9l8 4.8v2.2l-8-2.4v5.1l2.4 1.8v1.7L12 21.2l-3.9 1v-1.7l2.4-1.8v-5.1l-8 2.4v-2.2l8-4.8V3.3c0-1 .6-1.8 1.5-1.8z"/></svg>';
 // Top-down vehicle icons, front at the top, drawn at real-ish proportions (1 unit = 1 px at full size).
@@ -125,7 +132,8 @@ const map = new maplibregl.Map({
   attributionControl: false, dragRotate: false, pitchWithRotate: false,
 });
 map.touchZoomRotate.disableRotation();
-const iconScale = () => document.documentElement.style.setProperty('--s', Math.min(1.5, Math.max(0.65, (map.getZoom() - 12.2) / 3.2)).toFixed(2));
+// icons are readable at the opening zoom and grow when zooming in
+const iconScale = () => document.documentElement.style.setProperty('--s', Math.min(2, Math.max(1.3, 1.3 + (map.getZoom() - 14.5) * 0.25)).toFixed(2));
 map.on('zoom', iconScale);
 iconScale();
 map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
@@ -264,7 +272,7 @@ function drawTrails() {
       if (!w) { prev = null; continue; }
       if (prev) {
         const age = (i - from) / Math.max(1, S.idx - from);
-        const c = w.trust_state === 'untrusted' ? COLORS.red : w.trust_state === 'caution' ? COLORS.amber : COLORS.blue;
+        const c = w.trust_state === 'untrusted' ? COLORS.red : w.trust_state === 'caution' ? COLORS.amber : (TYPE_COLOR[v.asset_class] || COLORS.blue);
         feats.push({ type: 'Feature', properties: { c, o: 0.08 + 0.5 * age },
           geometry: { type: 'LineString', coordinates: [[prev.lon, prev.lat], [w.position.lon, w.position.lat]] } });
       }
@@ -511,6 +519,11 @@ const THUMBS = {
     <path d="M30 58 L48 46" stroke="#e8368a" stroke-width="2" stroke-dasharray="3 2"/></svg>`,
 };
 
+function renderTypeKey() {
+  $('type-key').innerHTML = `<span class="key-item"><i style="background:${COLORS.blue}"></i>Aircraft</span>` +
+    TYPE_KEY.map(([k, label]) => `<span class="key-item"><i style="background:${TYPE_COLOR[k]}"></i>${label}</span>`).join('');
+}
+
 function renderViews() {
   $('views-thumb').innerHTML = THUMBS[S.view]();
   $('views-label').textContent = VIEWS[S.view].label;
@@ -604,6 +617,7 @@ function tick(now) {
     if (!map.loaded()) await new Promise((r) => map.once('load', r));
     addLayers(L, photo);
     applyView('photo');
+    renderTypeKey();
     renderDemo();
     requestAnimationFrame(tick);
   } catch (err) {

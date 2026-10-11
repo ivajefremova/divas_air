@@ -67,6 +67,9 @@ body.panel-open #demo { right: calc(min(400px, 100vw - 24px) + 28px); }
 .view-opt.on .thumb { border-color: var(--blue); }
 .view-opt:hover .thumb { border-color: var(--pink); }
 .thumb svg { display: block; width: 100%; height: 100%; }
+.type-key { display: flex; flex-wrap: wrap; gap: 6px 14px; max-width: 366px; margin: 10px 2px 2px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.key-item { display: inline-flex; align-items: center; gap: 6px; }
+.key-item i { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
 .toggle { display: inline-flex; align-items: center; gap: 8px; margin: 6px 16px 2px 2px; font-weight: 600; cursor: pointer; }
 .toggle input { display: none; }
 .toggle span { width: 36px; height: 21px; border-radius: 999px; background: #d5d9e5; position: relative; transition: background .15s; }
@@ -146,7 +149,7 @@ body.panel-open #panel { transform: none; }
 .member span { color: var(--muted); font-weight: 600; }
 
 /* --- track markers --------------------------------------------------------------------- */
-.trk { position: relative; width: 26px; height: 26px; cursor: pointer; --ring: calc(52px * var(--s, 1)); }
+.trk { position: relative; width: 26px; height: 26px; cursor: pointer; --ring: calc(46px + 14px * var(--s, 1)); }
 .trk .icon { position: absolute; inset: 0; display: grid; place-items: center; transition: transform .3s linear; }
 .trk svg { overflow: visible; transform: scale(var(--s, 1)); filter: drop-shadow(0 1px 1.5px rgba(24,32,58,.5)); }
 .trk.aircraft svg { width: 28px; height: 28px; }
@@ -159,6 +162,12 @@ body.panel-open #panel { transform: none; }
 .trk .beacon { fill: #fff; }
 .trk.c-follow_me .beacon { fill: var(--amber); stroke: #fff; stroke-width: .6; }
 .trk.c-sar_vehicle .beacon { fill: var(--red); stroke: #fff; stroke-width: .6; }
+.trk.s-trusted.c-bus .shape { fill: #0d9488; }
+.trk.s-trusted.c-fuel_truck .shape { fill: #7c3aed; }
+.trk.s-trusted.c-catering_truck .shape { fill: #65a30d; }
+.trk.s-trusted.c-baggage_tractor .shape { fill: #64748b; }
+.trk.s-trusted.c-follow_me .shape { fill: #0ea5e9; }
+.trk.s-trusted.c-sar_vehicle .shape { fill: #1f2937; }
 .trk.s-caution .shape { fill: var(--amber); }
 .trk.s-untrusted .shape { fill: rgba(255, 255, 255, .92); stroke: var(--red); stroke-width: 1.8; stroke-dasharray: 3 2; }
 .trk.s-untrusted .detail, .trk.s-untrusted .beacon { fill: rgba(229, 56, 59, .35); }
@@ -169,10 +178,10 @@ body.panel-open #panel { transform: none; }
    readable on the photo, the schematic and the plain views alike */
 .trk .halo, .trk .ring { position: absolute; left: 50%; top: 50%; width: var(--ring); height: var(--ring);
   margin: calc(var(--ring) / -2) 0 0 calc(var(--ring) / -2); border-radius: 50%; pointer-events: none; display: none; }
-.trk.abnormal .halo { display: block; background: rgba(255, 79, 163, .28);
-  border: 4px solid var(--pink); box-shadow: 0 0 0 2px #fff, 0 0 18px 4px rgba(255, 79, 163, .55); }
-.trk.abnormal .ring { display: block; border: 4px solid var(--pink); animation: pulse 1.3s ease-out infinite; }
-@keyframes pulse { 0% { transform: scale(1); opacity: .95; } 100% { transform: scale(2.1); opacity: 0; } }
+.trk.abnormal .halo { display: block; background: rgba(255, 79, 163, .38);
+  border: 5px solid var(--pink); box-shadow: 0 0 0 2.5px #fff, 0 0 26px 8px rgba(255, 79, 163, .7); }
+.trk.abnormal .ring { display: block; border: 5px solid var(--pink); animation: pulse 1.2s ease-out infinite; }
+@keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(2.3); opacity: 0; } }
 .trk.abnormal { z-index: 2; }
 .trk .tag { position: absolute; left: 50%; bottom: calc(50% + var(--ring) / 2 + 6px); transform: translateX(-50%); white-space: nowrap;
   background: var(--surface); color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 3px 8px; border-radius: 8px;
