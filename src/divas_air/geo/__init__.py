@@ -166,6 +166,11 @@ def _route_graphs() -> dict[str, nx.MultiGraph]:
 class MapLayers:
     """Normalized LIRF layers. Build with `MapLayers.load()`."""
 
+    profile = "osm"  # layer set; "adr" = ADR geofences (divas_air.geo.adr)
+    zone_access = (
+        None  # per-profile access table; None = data/reference/zone_access.csv
+    )
+
     def __init__(self, zones, buildings, boundary, runways, routes, runway_lines=None):
         self.zones = zones
         self.buildings = buildings
@@ -175,9 +180,15 @@ class MapLayers:
         self.runway_lines = runway_lines
 
     @classmethod
-    def load(cls, airport: str = "LIRF") -> MapLayers:
+    def load(cls, airport: str = "LIRF", profile: str = "osm") -> MapLayers:
         if airport != "LIRF":
             raise ValueError(f"no layers for {airport}")
+        if profile == "adr":
+            from divas_air.geo.adr import load_adr
+
+            return load_adr()
+        if profile != "osm":
+            raise ValueError(f"unknown layer profile {profile!r}")
         return _load_lirf()
 
     # --- coordinates -------------------------------------------------------

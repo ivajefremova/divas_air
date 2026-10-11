@@ -199,6 +199,10 @@ def from_flat(raw: pd.DataFrame, source: str, *, box=None) -> tuple[pd.DataFrame
 
 
 def source_files(source: str) -> list[Path]:
+    if source == "adr_mock":
+        from divas_air.ingest import adr
+
+        return adr.raw_files()
     pattern = SOURCE_FILES.get(source)
     return sorted(config.PROCESSED.glob(pattern)) if pattern else []
 
@@ -225,7 +229,14 @@ def ingest_source(source: str) -> Path:
 
 
 def _ingest(source: str) -> tuple[Path, pd.DataFrame, dict]:
-    points, drops = _read(source)
+    if source == "adr_mock":
+        from divas_air.ingest import adr
+
+        points, side, drops = adr.read()
+        adr.SIDE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        side.to_parquet(adr.SIDE_PATH, index=False)
+    else:
+        points, drops = _read(source)
     path = points_path(source)
     path.parent.mkdir(parents=True, exist_ok=True)
     points.to_parquet(path, index=False)
