@@ -601,8 +601,6 @@ function cameraDash(id) {
         </div>
       </div>
       <div>
-        <div class="label">Sees</div>
-        <div class="sees">${(cam.sees || []).slice(0, 6).map((x) => `<span>${esc(x)}</span>`).join('') || '<span>Nothing mapped</span>'}</div>
         <div class="label">Anomalies in view</div>
         ${anomalies || '<div class="none">None right now</div>'}
       </div>
