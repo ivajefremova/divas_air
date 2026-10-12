@@ -54,8 +54,8 @@ const iconFor = (v) => (v.domain === 'aircraft' ? PLANE : ICONS[v.asset_class] |
 const S = {
   scenarios: [], cur: null, manifest: null, frames: [], byTrack: [], disp: [], source: '',
   t: 0, idx: -1, playing: true, view: 'photo', show: { aircraft: true, vehicles: true },
-  sel: null, impact: null, panelOpen: false, items: [], top: null, notified: null,
-  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false, compare: [],
+  impact: null, panelOpen: false, items: [], top: null, notified: null,
+  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false, compare: [], camFor: {},
 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -203,7 +203,7 @@ function addLayers(L, photo) {
   map.addLayer({ id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round' }, paint: { 'line-color': ['get', 'c'], 'line-opacity': ['get', 'o'], 'line-width': 3 } });
   map.on('click', (e) => {
     if (S.view === 'schematic') return placeInfo(e.lngLat, e.point);
-    if (!e.defaultPrevented) { closeImpact(); if (S.sel) select(null); }
+    if (!e.defaultPrevented) closeImpact();
   });
 }
 
@@ -214,7 +214,7 @@ function applyView(view) {
   for (const id of BASE_LAYERS) map.setLayoutProperty(id, 'visibility', VIEWS[view].on.includes(id) ? 'visible' : 'none');
   map.setPaintProperty('rwy-line', 'line-width', view === 'photo' ? 1.8 : 2.5);
   S.popup?.remove();
-  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); renderCompare(); if (S.sel?.kind === 'camera') select(null); }
+  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); renderCompare(); }
   highlightCamera();
   renderViews();
   if (S.frames.length) onFrame();
@@ -262,12 +262,7 @@ function markerFor(v) {
       const p = S.pos.get(v.track_id);
       return placeInfo({ lng: p.lon, lat: p.lat }, map.project([p.lon, p.lat]));
     }
-    if (S.sel?.kind === 'track' && S.sel.id !== v.track_id) {  // a dashboard is open: open this one alongside to compare
-      if (!S.compare.includes(v.track_id)) S.compare.push(v.track_id);
-      renderCompare();
-      return styleMarkers(S.frames[S.idx]);
-    }
-    select({ kind: 'track', id: v.track_id });
+    openWindow(v.track_id);
   });
   const marker = new maplibregl.Marker({ element: wrap, anchor: 'center' }).setLngLat([v.position.lon, v.position.lat]).addTo(map);
   m = { marker, wrap, el, icon: el.querySelector('.icon'), tag: el.querySelector('.tag') };
@@ -281,7 +276,7 @@ function styleMarkers(frame) {
   for (const v of frame.verdicts) {
     present.add(v.track_id);
     const m = markerFor(v);
-    const sel = (S.sel?.kind === 'track' && S.sel.id === v.track_id) || S.compare.includes(v.track_id);
+    const sel = S.compare.includes(v.track_id);
     m.el.className = ['trk', v.domain, `c-${v.asset_class}`, `s-${v.trust_state}`, v.confidence_level === 'low' ? 'conf-low' : '',
       causes.has(v.track_id) ? 'cause' : '', sel ? 'sel' : '', shown(v) && (S.view !== 'cameras' || isAlert(v)) ? '' : 'hidden'].join(' ');
     m.tag.textContent = nameOf(v);
@@ -411,7 +406,7 @@ function renderNotify() {
     n.style.animation = 'none'; void n.offsetWidth; n.style.animation = '';
     beep(critical);
     keepInView();
-    if (top.kind === 'area' && S.view === 'photo') openImpact(top.id);
+    if (top.kind === 'area' && S.view === 'photo' && !isPhone()) openImpact(top.id);
   }
 }
 
@@ -456,9 +451,9 @@ $('notify').addEventListener('click', () => {
   const id = top.kind === 'track' ? top.id : priorityOrder(top.members)[0]?.track_id;
   const t = id && S.pos.get(id);
   if (t) map.jumpTo({ center: [t.lon, t.lat], zoom: Math.max(map.getZoom(), 16.5),
-    padding: { right: isPhone() ? 0 : 560 + (top.kind === 'area' ? 280 : 0), top: 90, left: 0, bottom: isPhone() ? 300 : 0 } });
-  if (top.kind === 'area') openImpact(top.id);
-  if (id) select({ kind: 'track', id });
+    padding: { right: isPhone() ? 0 : (top.kind === 'area' ? 560 : 0), top: 90, left: 0, bottom: isPhone() ? innerHeight * 0.38 : 380 } });
+  if (top.kind === 'area' && !isPhone()) openImpact(top.id);  // phones: one window at a time, the list opens via Check impact
+  if (id) openWindow(id);
 });
 
 // ---- panel: alert list or the vehicle dashboard -------------------------------------------------
@@ -472,9 +467,8 @@ function renderPanel() {
   const total = frame.verdicts.filter(shown).length, st = $('status');
   st.textContent = items.length ? `${items.length} need${items.length === 1 ? 's' : ''} attention` : `All ${total} positions trusted`;
   st.classList.toggle('warn', items.length > 0);
-  document.body.classList.toggle('dash', !!S.sel && S.sel.kind !== 'area');
   if (!S.panelOpen) return;
-  $('panel-body').innerHTML = S.sel?.kind === 'track' ? dashboard(S.sel.id) : S.sel?.kind === 'camera' ? cameraDash(S.sel.id) : alertList(items);
+  $('panel-body').innerHTML = alertList(items);
 }
 
 function alertList(items) {
@@ -492,12 +486,13 @@ function alertList(items) {
 }
 
 const barColor = (x) => (x < 40 ? COLORS.red : x < 70 ? COLORS.amber : '#4d8dff');
-const bar = (label, x, major) => `<div class="dim${major ? ' major' : ''}"><span>${label}</span><span class="track"><span class="fill" style="width:${x}%;background:${barColor(x)}"></span></span><span class="val">${Math.round(x)} / 100</span></div>`;
+const bar = (label, x, major) => `<div class="dim${major ? ' major' : ''}"><span>${label}</span><span class="track"><span class="fill" style="width:${x}%;background:${barColor(x)}"></span></span><span class="val" data-v="${Math.round(x)}">${Math.round(x)} / 100</span></div>`;
 
-const panelHead = () => `<button class="p-close" data-close aria-label="Hide">${isPhone() ? '×' : '›'}</button><button class="back" data-back>‹ All alerts</button>`;
+const winClose = (key) => `<button class="cmp-x" data-cmpclose="${esc(key)}" aria-label="Close">×</button>`;
 
+// vehicle window: horizontal, everything visible without scrolling
 function dashboard(id) {
-  const v = S.byTrack[S.idx].get(id), head = panelHead();
+  const v = S.byTrack[S.idx].get(id), head = winClose(id);
   if (!v) return `${head}<div class="empty">No position for this vehicle right now.</div>`;
   const conf = { low: 1, medium: 2, high: 3 }[v.confidence_level];
   const dims = Object.entries(v.dimensions).map(([k, x]) => bar(k[0].toUpperCase() + k.slice(1), x)).join('');
@@ -541,12 +536,7 @@ function addCameras(points, cover) {
     el.title = cam.camera_id;
     el.addEventListener('click', (e) => {
       e.stopPropagation();
-      const key = `cam:${cam.camera_id}`;
-      if (S.sel?.kind === 'camera' && S.sel.id !== cam.camera_id) {  // another camera is open: compare side by side
-        if (!S.compare.includes(key)) S.compare.push(key);
-        renderCompare();
-        highlightCamera();
-      } else { S.camFor = null; select({ kind: 'camera', id: cam.camera_id }); }
+      openWindow(`cam:${cam.camera_id}`);
     });
     S.camMarkers.push({ id: cam.camera_id, el, marker: new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat(cam.coords).addTo(map) });
   }
@@ -554,7 +544,7 @@ function addCameras(points, cover) {
 
 function highlightCamera() {
   if (!map.getLayer('cam-cover')) return;
-  const ids = [S.sel?.kind === 'camera' ? S.sel.id : '', ...S.compare.filter((k) => k.startsWith('cam:')).map((k) => k.slice(4))];
+  const ids = ['', ...S.compare.filter((k) => k.startsWith('cam:')).map((k) => k.slice(4))];
   const filter = ['in', ['get', 'camera_id'], ['literal', ids]];
   map.setFilter('cam-cover', filter);
   map.setFilter('cam-edge', filter);
@@ -576,53 +566,47 @@ function bestCamera(trackId) {
 function checkCamera(trackId) {
   const best = bestCamera(trackId);
   if (!best) return;
-  S.camFor = { track: trackId, camera: best.c.camera_id, sees: best.sees, d: Math.round(best.d) };
+  S.camFor[best.c.camera_id] = { track: trackId, sees: best.sees, d: Math.round(best.d) };
   applyView('cameras');
   const p = S.pos.get(trackId), c = best.c.coords;
   const b = new maplibregl.LngLatBounds([p.lon, p.lat], [p.lon, p.lat]).extend(c);
   map.fitBounds(b, { padding: { top: 120, bottom: isPhone() ? innerHeight * 0.5 : 80, left: isPhone() ? 40 : 300, right: isPhone() ? 40 : 600 }, maxZoom: 15.8, duration: 800 });
-  select({ kind: 'camera', id: best.c.camera_id });
+  openWindow(`cam:${best.c.camera_id}`);
 }
 
-function cameraDash(id, compact = false) {
+// camera window: horizontal, three columns (details | what it sees | footage), no scrolling
+function cameraDash(id) {
   const cam = S.cameras.find((c) => c.camera_id === id);
-  const head = compact ? `<button class="cmp-x" data-cmpclose="cam:${esc(id)}" aria-label="Close">×</button>` : panelHead();
+  const head = winClose(`cam:${id}`);
   if (!cam) return head;
   const inView = cam.ring ? S.frames[S.idx].verdicts.filter((v) => isAlert(v) && S.pos.get(v.track_id) && inRing(S.pos.get(v.track_id), cam.ring)) : [];
   const footage = S.hasVideo
     ? '<video class="footage" src="media/camera.mp4" autoplay muted loop playsinline></video>'
     : `<div class="footage empty-feed">${CAM_SVG}<b>Live footage</b><span>Available once camera access is granted</span></div>`;
-  if (compact) {
-    return `${head}<div class="cmp-name">${esc(cam.camera_id)}</div><div class="cam-label">${esc(cam.label)}</div>
-      <div class="label">Sees</div><div class="sees">${(cam.sees || []).map((x) => `<span>${esc(x)}</span>`).join('') || '<span>Nothing mapped</span>'}</div>
-      <div class="label">Anomalies in view</div>
-      ${inView.length ? inView.map((v) => `<button class="imp" data-track="${esc(v.track_id)}"><span class="who">${esc(nameOf(v))}</span><b>${esc(ISSUE_WORD[quad(v)] || 'Check')}</b></button>`).join('') : '<div class="none">None right now</div>'}
-      ${footage}`;
-  }
-  const f = !compact && S.camFor?.camera === id ? S.camFor : null;
-  const fv = f && S.byTrack[S.idx].get(f.track);
+  const f = S.camFor[id], fv = f && S.byTrack[S.idx].get(f.track);
   const checking = fv ? `<div class="pinkbox"><div class="pb-label">Checking</div><div class="pb-main">${esc(nameOf(fv))}</div>
-    <div class="pb-sub">${f.sees ? `In view · ${f.d} m from the camera` : `Not in view of any camera · nearest, ${f.d} m away`}</div></div>` : '';
+    <div class="pb-sub">${f.sees ? `In view · ${f.d} m away` : `Not in view · nearest camera, ${f.d} m away`}</div></div>` : '';
+  const anomalies = inView.slice(0, 4).map((v) => `<button class="imp" data-track="${esc(v.track_id)}"><span class="who">${esc(nameOf(v))}</span><b>${esc(ISSUE_WORD[quad(v)] || 'Check')}</b></button>`).join('')
+    + (inView.length > 4 ? `<div class="none">+${inView.length - 4} more</div>` : '');
   return `${head}
-    <div class="dash-grid">
-      <div class="col-a">
+    <div class="cam-grid">
+      <div>
         <div class="d-head"><div class="d-name">${esc(cam.camera_id)}</div></div>
         <div class="cam-label">${esc(cam.label)}</div>
         ${checking}
         <div class="facts2">
-          <div><span>Height</span>${cam.height_m} m</div><div><span>Range</span>${cam.range_m} m</div>
-          <div><span>Field of view</span>${cam.fov_deg}°</div><div><span>Night vision</span>${cam.infrared ? 'Yes' : 'No'}</div>
-          <div><span>Status</span>${cam.status === 'online' ? 'Online' : 'Offline'}</div><div><span>Source</span>Simulated</div>
+          <div><span>Range</span>${cam.range_m} m</div><div><span>Field of view</span>${cam.fov_deg}°</div>
+          <div><span>Night vision</span>${cam.infrared ? 'Yes' : 'No'}</div><div><span>Status</span>${cam.status === 'online' ? 'Online' : 'Offline'}</div>
         </div>
       </div>
-      <div class="col-b">
+      <div>
         <div class="label">Sees</div>
-        <div class="sees">${(cam.sees || []).map((x) => `<span>${esc(x)}</span>`).join('') || '<span>Nothing mapped</span>'}</div>
+        <div class="sees">${(cam.sees || []).slice(0, 6).map((x) => `<span>${esc(x)}</span>`).join('') || '<span>Nothing mapped</span>'}</div>
         <div class="label">Anomalies in view</div>
-        ${inView.length ? inView.map((v) => `<button class="imp" data-track="${esc(v.track_id)}">${esc(nameOf(v))}<b>${esc(ISSUE_WORD[quad(v)] || 'Check')}</b></button>`).join('') : '<div class="none">None right now</div>'}
+        ${anomalies || '<div class="none">None right now</div>'}
       </div>
-    </div>
-    ${footage}`;
+      <div>${footage}</div>
+    </div>`;
 }
 
 function sparkline(id) {
@@ -686,49 +670,49 @@ $('impact-body').addEventListener('click', (e) => {
   if (e.target.closest('[data-more]')) { S.impact.all = !S.impact.all; return renderImpact(); }
   const b = e.target.closest('[data-track]');
   if (!b) return;
-  const id = b.dataset.track;
-  if (S.sel?.kind !== 'track') return select({ kind: 'track', id });
-  if (id !== S.sel.id && !S.compare.includes(id)) S.compare.push(id);  // open it next to the others
-  renderCompare();
-  styleMarkers(S.frames[S.idx]);
+  openWindow(b.dataset.track);
 });
 
-// compact windows of impacted vehicles, side by side (each one can be dragged)
-function compareCard(id) {
-  const v = S.byTrack[S.idx].get(id);
-  if (!v) return `<button class="cmp-x" data-cmpclose="${esc(id)}">×</button><div class="cmp-name">${esc(id)}</div><div class="none">No position right now</div>`;
-  const lvl = v.confidence_level[0].toUpperCase() + v.confidence_level.slice(1);
-  return `<button class="cmp-x" data-cmpclose="${esc(id)}" aria-label="Close">×</button>
-    <div class="cmp-name">${esc(nameOf(v))}</div>
-    <div class="cmp-boxes"><div class="pinkbox"><div class="pb-label">Confidence</div><div class="pb-main">${lvl}</div></div>
-      <div class="pinkbox"><div class="pb-label">Likely cause</div><div class="pb-main">${esc(CAUSE_TEXT[v.cause])}</div></div></div>
-    <div class="bars">${bar('Integrity', v.integrity, true)}${bar('Normality', v.normality, true)}<div class="dim-sep"></div>
-      ${Object.entries(v.dimensions).map(([k, x]) => bar(k[0].toUpperCase() + k.slice(1), x)).join('')}</div>`;
+// ---- windows: every vehicle and camera opens in its own window; they tile and can be dragged ---------------
+
+function openWindow(key) {
+  if (!S.compare.includes(key)) S.compare.push(key);
+  renderCompare();
+  highlightCamera();
+  styleMarkers(S.frames[S.idx]);
+  const el = $('compare').querySelector(`[data-id="${CSS.escape(key)}"]`);  // already open: flash it
+  if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+}
+function closeWindow(key) {
+  S.compare = S.compare.filter((k) => k !== key);
+  renderCompare();
+  highlightCamera();
+  styleMarkers(S.frames[S.idx]);
 }
 function renderCompare() {
   const box = $('compare');
   box.hidden = !S.compare.length;
   for (const el of [...box.children]) if (!S.compare.includes(el.dataset.id)) el.remove();
-  for (const id of S.compare) {
-    let el = box.querySelector(`[data-id="${CSS.escape(id)}"]`);
+  for (const key of S.compare) {
+    let el = box.querySelector(`[data-id="${CSS.escape(key)}"]`);
     if (!el) {
-      el = document.createElement('div'); el.className = 'cmp'; el.dataset.id = id; box.appendChild(el);
+      el = document.createElement('div'); el.className = `cmp ${key.startsWith('cam:') ? 'win-cam' : 'win-veh'}`; el.dataset.id = key; box.appendChild(el);
       el.innerHTML = '<div class="grip" aria-hidden="true"></div><div class="cmp-body"></div>';
-      makeMovable(el, `cmp:${id}`); placeSaved(el, `cmp:${id}`);
+      makeMovable(el, `win:${key}`); placeSaved(el, `win:${key}`);
     }
-    el.querySelector('.cmp-body').innerHTML = id.startsWith('cam:') ? cameraDash(id.slice(4), true) : compareCard(id);
+    el.querySelector('.cmp-body').innerHTML = key.startsWith('cam:') ? cameraDash(key.slice(4)) : dashboard(key);
   }
   document.body.classList.toggle('comparing', S.compare.length > 0);
 }
 $('compare').addEventListener('click', (e) => {
-  const veh = e.target.closest('[data-track]');
-  if (veh) return select({ kind: 'track', id: veh.dataset.track });
   const x = e.target.closest('[data-cmpclose]');
-  if (!x) return;
-  S.compare = S.compare.filter((id) => id !== x.dataset.cmpclose);
-  renderCompare();
-  highlightCamera();
-  styleMarkers(S.frames[S.idx]);
+  if (x) return closeWindow(x.dataset.cmpclose);
+  const imp = e.target.closest('[data-impact]');
+  if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
+  const cc = e.target.closest('[data-checkcam]');
+  if (cc) return checkCamera(cc.dataset.checkcam);
+  const veh = e.target.closest('[data-track]');
+  if (veh) return openWindow(veh.dataset.track);
 });
 
 // ---- movable windows (desktop): drag a window by its background, it stays where it is dropped -------------
@@ -739,22 +723,40 @@ function placeSaved(el, key) {
   if (!p) return;
   Object.assign(el.style, { position: 'fixed', left: `${p.x}px`, top: `${p.y}px`, right: 'auto', bottom: 'auto', transform: 'none', zIndex: 20 });
 }
+// A press that moves more than a few pixels is a drag; one that doesn't stays a click (so list rows still work).
+const NO_DRAG = '.close-btn, .p-close, .cmp-x, .impact-btn, .imp-more, .back, a, input, video, .menu-item';
 function makeMovable(el, key) {
   el.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || e.target.closest('button, a, input, video, .menu-item')) return;
-    if (isPhone() && !e.target.closest('.grip')) return;  // phones: drag by the grab bar only, so scrolling still works
-    const k = key, r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
-    el.classList.add('dragging');
-    el.setPointerCapture(e.pointerId);
+    if (e.button !== 0 || e.target.closest(NO_DRAG)) return;
+    const r = el.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY, dx = x0 - r.left, dy = y0 - r.top;
+    let dragging = false;
     const move = (ev) => {
-      const x = isPhone() ? r.left : Math.min(Math.max(0, ev.clientX - dx), innerWidth - 60);  // phones: up and down only
+      if (!dragging) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 6) return;
+        dragging = true;
+        el.classList.add('dragging');
+        try { el.setPointerCapture(ev.pointerId); } catch (err) { /* already released */ }
+      }
+      const x = Math.min(Math.max(-r.width + 60, ev.clientX - dx), innerWidth - 60);
       const y = Math.min(Math.max(0, ev.clientY - dy), innerHeight - 40);
-      placed.set(k, { x, y });
-      placeSaved(el, k);
+      placed.set(key, { x, y });
+      placeSaved(el, key);
+      ev.preventDefault();
     };
-    const up = () => { el.classList.remove('dragging'); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+    const up = () => {
+      el.removeEventListener('pointermove', move);
+      el.removeEventListener('pointerup', up);
+      el.removeEventListener('pointercancel', up);
+      if (!dragging) return;
+      el.classList.remove('dragging');
+      // the click that ends a drag must not also press the row under the finger
+      const eat = (ce) => { ce.stopPropagation(); ce.preventDefault(); };
+      el.addEventListener('click', eat, { capture: true, once: true });
+      setTimeout(() => el.removeEventListener('click', eat, { capture: true }), 350);
+    };
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', up);
   });
 }
 makeMovable($('panel'), 'panel');
@@ -765,17 +767,7 @@ new ResizeObserver(() => {
 makeMovable($('impact'), 'impact');
 placeSaved($('panel'), 'panel');
 
-// ---- selection --------------------------------------------------------------------------------
-
-function select(sel) {
-  S.sel = sel;
-  if (sel?.kind === 'track') S.compare = S.compare.filter((id) => id !== sel.id);
-  renderCompare();
-  highlightCamera();
-  if (sel) openPanel(true);
-  styleMarkers(S.frames[S.idx]);
-  renderPanel();
-}
+// ---- alerts panel ----------------------------------------------------------------------------------
 
 function openPanel(open) {
   S.panelOpen = open;
@@ -787,19 +779,11 @@ function openPanel(open) {
 
 $('panel-tab').addEventListener('click', () => openPanel(!S.panelOpen));
 $('panel-body').addEventListener('click', (e) => {
-  if (e.target.closest('[data-close]')) { S.sel = null; return openPanel(false); }
-  if (e.target.closest('[data-back]')) return select(null);
-  const imp = e.target.closest('[data-impact]');
-  if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
-  const cc = e.target.closest('[data-checkcam]');
-  if (cc) return checkCamera(cc.dataset.checkcam);
-  const veh = e.target.closest('[data-track]');
-  if (veh) return select({ kind: 'track', id: veh.dataset.track });
+  if (e.target.closest('[data-close]')) return openPanel(false);
   const a = e.target.closest('.alert');
-  if (a) {
-    const it = S.items[Number(a.dataset.k)];
-    if (it?.kind === 'area') openImpact(it.id); else if (it) select({ kind: 'track', id: it.id });
-  }
+  if (!a) return;
+  const it = S.items[Number(a.dataset.k)];
+  if (it?.kind === 'area') openImpact(it.id); else if (it) openWindow(it.id);
 });
 
 // ---- views menu + key -----------------------------------------------------------------------------
@@ -849,7 +833,7 @@ async function openScenario(sc, overview = true) {
   S.cur = sc;
   S.markers.forEach((m) => m.marker.remove());  // track ids repeat across scenarios with other vehicle types
   S.markers.clear();
-  S.sel = null; S.compare = []; S.notified = null; S.top = null; S.camFor = null;
+  S.compare = []; S.notified = null; S.top = null; S.camFor = {};
   renderCompare();
   highlightCamera();
   closeImpact();

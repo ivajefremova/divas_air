@@ -311,23 +311,23 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
   #panel-body { padding: 4px 14px calc(12px + env(safe-area-inset-bottom)); }
   .d-name { font-size: 17px; }
   .d-head { margin-bottom: 6px; }
-  #panel .col-a { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  #panel .col-a .d-head { grid-column: 1 / -1; }
+  .cmp .col-a { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .cmp .col-a .d-head { grid-column: 1 / -1; }
   .pinkbox { padding: 6px 9px; margin: 0; }
   .pinkbox .pb-main { font-size: 15px; }
   .pinkbox .pb-label { font-size: 10px; }
   .meter i { width: 14px; height: 6px; }
   .dim { grid-template-columns: 76px 1fr 56px; font-size: 13px; margin: 2px 0; }
   .dim .track { height: 7px; }
-  #panel .label, #panel .spark { display: none; }
-  #panel .dash-end .label { display: block; }
+  .cmp .spark { display: none; }
+  .cmp .dash-end .label { display: block; }
   .todo { font-size: 13.5px; }
   .dash-end { padding-top: 6px; gap: 6px; }
   .impact-btn { padding: 9px; }
   .facts2 { font-size: 13px; }
   .footage { height: 100px; }
   /* impacted vehicles: its own strip under the banner, never behind the dashboard */
-  #impact { inset: 140px 8px auto 8px !important; width: auto; max-height: 30vh; border-radius: 6px; z-index: 13; padding: 6px 8px 8px; }
+  #impact { inset: 140px 8px auto 8px; width: auto; max-height: 30vh; border-radius: 6px; z-index: 13; padding: 6px 8px 8px; }
   body.comparing #impact { max-height: 30vh; }
   #impact .i-label { margin: 0 40px 6px 4px; }
   #impact .imp { padding: 5px 7px; font-size: 13px; }
@@ -355,3 +355,89 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
 .pinkbox .pb-sub { font-size: 12.5px; font-weight: 600; color: #ffe1ef; margin-top: 2px; }
 @media (max-width: 760px) { .btns { flex-direction: row; } .btns .impact-btn { flex: 1; } }
 #brand-logo { width: 44px; height: 44px; margin: -4px 0; object-fit: contain; flex: none; border-radius: 4px; }
+
+/* --- phones: small windows so the map stays visible --------------------------------------------- */
+@media (max-width: 760px) {
+  #notify { top: 62px; padding: 7px 12px 7px 8px; gap: 10px; }
+  .n-icon { width: 28px; height: 28px; font-size: 17px; }
+  .n-text b { font-size: 14px; } .n-text span { font-size: 12px; }
+  #panel { max-height: 36vh; }
+  #panel-body { padding: 0 12px calc(8px + env(safe-area-inset-bottom)); }
+  .back { font-size: 13px; margin-bottom: 2px; }
+  .d-name { font-size: 15px; }
+  .d-head { margin: 0 44px 4px 0; }
+  .p-close { width: 32px; height: 32px; font-size: 18px; top: 6px; right: 8px; }
+  .pinkbox { padding: 4px 8px; }
+  .pinkbox .pb-main { font-size: 13.5px; }
+  .pinkbox .pb-label { font-size: 9.5px; }
+  .meter { margin-left: 4px; } .meter i { width: 10px; height: 5px; }
+  .cmp .bars { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; margin: 6px 0 2px; }
+  .cmp .dim-sep { display: none; }
+  .cmp .dim { grid-template-columns: 62px 1fr 26px; font-size: 11.5px; gap: 5px; margin: 1px 0; }
+  .cmp .dim .val { font-size: 0; } .cmp .dim .val::before { content: attr(data-v); font-size: 11.5px; }
+  .cmp .dim .track { height: 6px; }
+  .todo { font-size: 12.5px; line-height: 1.3; }
+  .dash-end { padding-top: 4px; margin-top: 2px; }
+  .impact-btn { padding: 7px; font-size: 12.5px; }
+  .grip { height: 16px; } .grip::after { top: 6px; height: 4px; }
+  #impact { top: 112px; max-height: 24vh; }
+  #impact .imp { padding: 4px 6px; font-size: 12.5px; }
+  #impact .imp .who small { font-size: 11px; }
+  #compare { bottom: calc(36vh + 6px); }
+  .cmp { width: 210px; max-height: 22vh; padding: 6px 10px 8px; }
+  .cmp-name { font-size: 14px; margin-bottom: 4px; }
+  .cmp .dim { grid-template-columns: 62px 1fr 48px; font-size: 11.5px; }
+  .facts2 { font-size: 12px; gap: 4px 8px; }
+  .footage { height: 70px; margin-top: 6px; }
+}
+
+/* phones: windows move by dragging anywhere on them (they are small enough not to need scrolling) */
+@media (max-width: 760px) {
+  #panel, #impact, .cmp { touch-action: none; }
+  #impact { overflow: hidden; }
+  .dragging { box-shadow: 0 16px 40px rgba(4, 19, 47, .5) !important; }
+}
+
+/* --- windows: vehicles and cameras, all in their own window ---------------------------------------------- */
+.cmp.win-veh { width: 470px; max-height: none; overflow: visible; }
+.cmp.win-cam { width: 640px; max-height: none; overflow: visible; }
+.cmp .d-head { margin-right: 36px; }
+.cmp .dash-grid { grid-template-columns: 1fr 1.25fr; gap: 12px; }
+.cmp .dim { grid-template-columns: 80px 1fr 60px; font-size: 13.5px; }
+.cmp .pinkbox .pb-main { font-size: 17px; }
+.cam-grid { display: grid; grid-template-columns: 1fr 1fr 1.1fr; gap: 12px; align-items: start; }
+.cam-grid .footage { height: 150px; margin-top: 0; }
+.cam-grid .imp { padding: 5px 8px; margin-bottom: 4px; font-size: 13px; grid-template-columns: 1fr auto; }
+.cam-grid .imp b { font-size: 11.5px; padding: 1px 6px; }
+.cam-grid .sees { margin-bottom: 6px; }
+.flash { animation: flash .6s ease-out; }
+@keyframes flash { 0% { box-shadow: 0 0 0 4px var(--pink), var(--shadow); } 100% { box-shadow: var(--shadow); } }
+@media (max-width: 1200px) and (min-width: 761px) { .cmp.win-cam { width: 470px; } .cam-grid { grid-template-columns: 1fr 1fr; } .cam-grid > div:last-child { grid-column: 1 / -1; } }
+@media (max-width: 760px) {
+  #compare { left: 0; right: 0; bottom: 0; top: auto; padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; gap: 6px; }
+  .cmp.win-veh, .cmp.win-cam { width: calc(100vw - 20px); max-height: 38vh; overflow: hidden; flex: none; padding: 4px 12px 8px; }
+  .cmp .dash-grid { grid-template-columns: 1fr; gap: 4px; }
+  .cmp .d-name { font-size: 15px; }
+  .cmp .pinkbox .pb-main { font-size: 13.5px; }
+  .cam-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cam-grid > div:last-child { display: none; }
+  .cam-grid .cam-label, .cam-grid .facts2 { font-size: 11.5px; }
+  #panel { max-height: 60vh; }
+  #panel-body { overflow-y: auto; }
+}
+/* window header: name on the left, × on the right, content below */
+.cmp.win-veh, .cmp.win-cam { padding-top: 44px; }
+.cmp .d-head { position: absolute; top: 10px; left: 14px; right: 46px; margin: 0; }
+.cmp .cmp-x { top: 9px; right: 10px; }
+@media (max-width: 760px) {
+  .cmp.win-veh, .cmp.win-cam { padding-top: 34px; }
+  .cmp .d-head { top: 8px; left: 12px; }
+  .cmp .cmp-x { top: 5px; right: 8px; }
+}
+@media (max-width: 760px) {
+  .cmp .dim { grid-template-columns: 70px 1fr 26px; font-size: 12px; gap: 6px; }
+  .cmp .col-b > .label { display: none; }
+  #brand-logo { width: 30px; height: 30px; margin: 0; }
+  #brand .status { font-size: 12.5px; }
+}
+@media (max-width: 760px) { #notify { top: 78px; } #impact { top: 128px; } }
