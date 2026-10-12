@@ -518,3 +518,19 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
   .veh-cam .empty-feed b { font-size: 13px; } .veh-cam .empty-feed span { font-size: 11px; text-align: center; }
   .vc-state { font-size: 11.5px; }
 }
+
+/* camera footage: full width, big; camera details as a small caption on its edge */
+.veh-cam { display: block; position: relative; grid-template-columns: none; margin-top: 10px; padding-top: 0; border-top: 0; }
+.veh-cam .footage { height: 240px; width: 100%; margin: 0; border-radius: 6px; }
+.veh-cam .empty-feed { border: 1px solid #2b56a8; }
+.vc-tag { position: absolute; top: 8px; left: 8px; display: flex; align-items: center; gap: 6px; background: rgba(4, 19, 47, .85); border-radius: 4px;
+  padding: 3px 4px 3px 8px; font-size: 11.5px; font-weight: 700; color: #cfdaf5; }
+.vc-tag b { font-weight: 800; color: #fff; }
+.vc-tag span { padding: 1px 6px; border-radius: 3px; color: #fff; }
+.vc-tag span.ok { background: #1f7a52; } .vc-tag span.no { background: #6b7a99; }
+@media (max-width: 760px) {
+  .veh-cam { margin-top: 6px; }
+  .veh-cam .footage { height: 110px; }
+  .veh-cam .empty-feed svg { display: block; width: 22px; height: 22px; }
+  .vc-tag { font-size: 10.5px; top: 5px; left: 5px; }
+}

@@ -528,16 +528,13 @@ function dashboard(id) {
 // the best camera for this vehicle, shown inside its window
 function vehicleCamera(id) {
   const best = bestCamera(id);
-  const footage = S.hasVideo
+  const feed = S.hasVideo
     ? '<video class="footage" src="media/camera.mp4" autoplay muted loop playsinline></video>'
     : `<div class="footage empty-feed">${CAM_SVG}<b>Live footage</b><span>Available once camera access is granted</span></div>`;
-  if (!best) return `<div class="veh-cam"><div><div class="label">Camera</div><div class="none">No camera available</div></div>${footage}</div>`;
-  return `<div class="veh-cam"><div>
-      <div class="label">Camera</div>
-      <div class="vc-name">${esc(best.c.camera_id)}</div>
-      <div class="cam-label">${esc(best.c.label)}</div>
-      <div class="vc-state ${best.sees ? 'ok' : 'no'}">${best.sees ? `Sees it · ${Math.round(best.d)} m away` : `Not in view · nearest, ${Math.round(best.d)} m`}</div>
-    </div>${footage}</div>`;
+  const tag = best
+    ? `<div class="vc-tag"><b>${esc(best.c.camera_id)}</b><span class="${best.sees ? 'ok' : 'no'}">${best.sees ? `Sees it · ${Math.round(best.d)} m` : `Not in view · ${Math.round(best.d)} m`}</span></div>`
+    : '<div class="vc-tag"><b>No camera</b></div>';
+  return `<div class="veh-cam">${feed}${tag}</div>`;
 }
 
 // ---- cameras (simulated) ----------------------------------------------------------------------
