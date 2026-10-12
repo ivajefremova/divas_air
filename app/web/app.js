@@ -55,7 +55,7 @@ const S = {
   scenarios: [], cur: null, manifest: null, frames: [], byTrack: [], disp: [], source: '',
   t: 0, idx: -1, playing: true, view: 'photo', show: { aircraft: true, vehicles: true },
   impact: null, panelOpen: false, items: [], top: null, notified: null,
-  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false, compare: [], camFor: {},
+  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false, compare: [], active: null, pinned: new Set(), camFor: {},
 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -214,7 +214,7 @@ function applyView(view) {
   for (const id of BASE_LAYERS) map.setLayoutProperty(id, 'visibility', VIEWS[view].on.includes(id) ? 'visible' : 'none');
   map.setPaintProperty('rwy-line', 'line-width', view === 'photo' ? 1.8 : 2.5);
   S.popup?.remove();
-  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); renderCompare(); document.body.classList.remove('win-min'); }
+  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); if (S.active?.startsWith('cam:')) S.active = null; renderCompare(); }
   highlightCamera();
   renderViews();
   if (S.frames.length) onFrame();
@@ -488,7 +488,8 @@ function alertList(items) {
 const barColor = (x) => (x < 40 ? COLORS.red : x < 70 ? COLORS.amber : '#4d8dff');
 const bar = (label, x, major) => `<div class="dim${major ? ' major' : ''}"><span>${label}</span><span class="track"><span class="fill" style="width:${x}%;background:${barColor(x)}"></span></span><span class="val" data-v="${Math.round(x)}">${Math.round(x)} / 100</span></div>`;
 
-const winClose = (key) => `<button class="cmp-x" data-cmpclose="${esc(key)}" aria-label="Close">×</button>`;
+const winClose = (key) => `<button class="cmp-pin${S.pinned.has(key) ? ' on' : ''}" data-pin="${esc(key)}" title="Keep open" aria-label="Keep open">⇔</button>
+  <button class="cmp-x" data-cmpclose="${esc(key)}" aria-label="Close">×</button>`;
 
 // vehicle window: horizontal, everything visible without scrolling
 function dashboard(id) {
@@ -568,11 +569,11 @@ function checkCamera(trackId) {
   if (!best) return;
   S.camFor[best.c.camera_id] = { track: trackId, sees: best.sees, d: Math.round(best.d) };
   applyView('cameras');
-  if (isPhone()) document.body.classList.add('win-min');  // phones: windows shrink to tabs on the side so the map shows the camera
   const p = S.pos.get(trackId), c = best.c.coords;
   const b = new maplibregl.LngLatBounds([p.lon, p.lat], [p.lon, p.lat]).extend(c);
   map.fitBounds(b, { padding: isPhone() ? { top: 150, bottom: 40, left: 30, right: 170 } : { top: 120, bottom: 80, left: 300, right: 600 }, maxZoom: 15.8, duration: 800 });
   openWindow(`cam:${best.c.camera_id}`);
+  if (isPhone()) { S.active = null; refreshWindows(); }  // phones: just the tabs, so the map shows the camera; tap CAM to open it
 }
 
 // camera window: horizontal, three columns (details | what it sees | footage), no scrolling
@@ -663,6 +664,7 @@ function renderImpact() {
     shownRows.map((v, k) => `<button class="imp${k < 3 && isAlert(v) ? ' top' : ''}${isAlert(v) ? '' : ' done'}" data-track="${esc(v.track_id)}">
       <span class="rank">${k + 1}</span><span class="who">${esc(nameOf(v))}<small>${esc(reason(v))}</small></span><b>${level(v)}</b></button>`).join('') + '</div>' +
     (more > 0 ? `<button class="imp-more" data-more>${S.impact.all ? 'Show top 5' : `⋯ ${more} more`}</button>` : '');
+  document.body.style.setProperty('--imp-right', `${box.offsetWidth + 32}px`);  // windows use the space up to the card
 }
 $('impact-close').addEventListener('click', closeImpact);
 $('impact-body').addEventListener('click', (e) => {
@@ -672,46 +674,59 @@ $('impact-body').addEventListener('click', (e) => {
   openWindow(b.dataset.track);
 });
 
-// ---- windows: every vehicle and camera opens in its own window; they tile and can be dragged ---------------
+// ---- windows: one tab per vehicle or camera; one window open at a time, more when kept open (⇔) ---------------
+
+const isOpen = (key) => key === S.active || S.pinned.has(key);
+const keyName = (key) => (key.startsWith('cam:') ? key.slice(4) : (() => { const v = S.byTrack[S.idx]?.get(key); return v ? nameOf(v) : key; })());
 
 function openWindow(key) {
   if (!S.compare.includes(key)) S.compare.push(key);
-  renderCompare();
-  highlightCamera();
-  styleMarkers(S.frames[S.idx]);
-  const el = $('compare').querySelector(`[data-id="${CSS.escape(key)}"]`);  // already open: flash it
-  if (el) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  S.active = key;
+  refreshWindows();
 }
 function closeWindow(key) {
   S.compare = S.compare.filter((k) => k !== key);
+  S.pinned.delete(key);
+  if (S.active === key) S.active = null;
+  refreshWindows();
+}
+function refreshWindows() {
   renderCompare();
   highlightCamera();
   styleMarkers(S.frames[S.idx]);
 }
 function renderCompare() {
   const box = $('compare');
+  if (!box.dataset.ready) { box.innerHTML = '<div class="win-open"></div><div class="win-tabs"></div>'; box.dataset.ready = '1'; }
+  const open = box.querySelector('.win-open'), tabs = box.querySelector('.win-tabs');
   box.hidden = !S.compare.length;
-  for (const el of [...box.children]) if (!S.compare.includes(el.dataset.id)) el.remove();
-  for (const key of S.compare) {
-    let el = box.querySelector(`[data-id="${CSS.escape(key)}"]`);
+  tabs.innerHTML = S.compare.map((k) => `<div class="wtab${isOpen(k) ? ' on' : ''}${S.pinned.has(k) ? ' pinned' : ''}${k.startsWith('cam:') ? ' cam' : ''}" data-tab="${esc(k)}">
+    <span>${esc(keyName(k))}</span><button class="cmp-x" data-cmpclose="${esc(k)}" aria-label="Close">×</button></div>`).join('');
+  const shownKeys = S.compare.filter(isOpen);
+  for (const el of [...open.children]) if (!shownKeys.includes(el.dataset.id)) el.remove();
+  for (const key of shownKeys) {
+    let el = open.querySelector(`[data-id="${CSS.escape(key)}"]`);
     if (!el) {
-      el = document.createElement('div'); el.className = `cmp ${key.startsWith('cam:') ? 'win-cam' : 'win-veh'}`; el.dataset.id = key; box.appendChild(el);
+      el = document.createElement('div'); el.className = `cmp ${key.startsWith('cam:') ? 'win-cam' : 'win-veh'}`; el.dataset.id = key; open.appendChild(el);
       el.innerHTML = '<div class="grip" aria-hidden="true"></div><div class="cmp-body"></div>';
       makeMovable(el, `win:${key}`); placeSaved(el, `win:${key}`);
     }
     el.querySelector('.cmp-body').innerHTML = key.startsWith('cam:') ? cameraDash(key.slice(4)) : dashboard(key);
-    const v = !key.startsWith('cam:') && S.byTrack[S.idx].get(key);
-    el.dataset.name = key.startsWith('cam:') ? key.slice(4) : v ? nameOf(v) : key;  // shown on the phone's side tabs
   }
   document.body.classList.toggle('comparing', S.compare.length > 0);
 }
 $('compare').addEventListener('click', (e) => {
-  if (document.body.classList.contains('win-min') && !e.target.closest('[data-cmpclose]')) {  // tap a tab: windows back to full size
-    document.body.classList.remove('win-min');
-    return;
-  }
   const x = e.target.closest('[data-cmpclose]');
   if (x) return closeWindow(x.dataset.cmpclose);
+  const pin = e.target.closest('[data-pin]');
+  if (pin) { const k = pin.dataset.pin; if (S.pinned.has(k)) S.pinned.delete(k); else S.pinned.add(k); return refreshWindows(); }
+  const tab = e.target.closest('[data-tab]');
+  if (tab) {  // the open window's tab collapses it; any other tab opens that window
+    const k = tab.dataset.tab;
+    if (S.pinned.has(k)) S.pinned.delete(k);
+    else S.active = S.active === k ? null : k;
+    return refreshWindows();
+  }
   const imp = e.target.closest('[data-impact]');
   if (imp) return imp.dataset.impact ? openImpact(imp.dataset.impact) : openImpact(null, imp.dataset.from);
   const cc = e.target.closest('[data-checkcam]');
@@ -838,8 +853,7 @@ async function openScenario(sc, overview = true) {
   S.cur = sc;
   S.markers.forEach((m) => m.marker.remove());  // track ids repeat across scenarios with other vehicle types
   S.markers.clear();
-  S.compare = []; S.notified = null; S.top = null; S.camFor = {};
-  document.body.classList.remove('win-min');
+  S.compare = []; S.active = null; S.pinned.clear(); S.notified = null; S.top = null; S.camFor = {};
   renderCompare();
   highlightCamera();
   closeImpact();
