@@ -214,7 +214,7 @@ function applyView(view) {
   for (const id of BASE_LAYERS) map.setLayoutProperty(id, 'visibility', VIEWS[view].on.includes(id) ? 'visible' : 'none');
   map.setPaintProperty('rwy-line', 'line-width', view === 'photo' ? 1.8 : 2.5);
   S.popup?.remove();
-  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); renderCompare(); }
+  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); renderCompare(); document.body.classList.remove('win-min'); }
   highlightCamera();
   renderViews();
   if (S.frames.length) onFrame();
@@ -568,9 +568,10 @@ function checkCamera(trackId) {
   if (!best) return;
   S.camFor[best.c.camera_id] = { track: trackId, sees: best.sees, d: Math.round(best.d) };
   applyView('cameras');
+  if (isPhone()) document.body.classList.add('win-min');  // phones: windows shrink to tabs on the side so the map shows the camera
   const p = S.pos.get(trackId), c = best.c.coords;
   const b = new maplibregl.LngLatBounds([p.lon, p.lat], [p.lon, p.lat]).extend(c);
-  map.fitBounds(b, { padding: { top: 120, bottom: isPhone() ? innerHeight * 0.5 : 80, left: isPhone() ? 40 : 300, right: isPhone() ? 40 : 600 }, maxZoom: 15.8, duration: 800 });
+  map.fitBounds(b, { padding: isPhone() ? { top: 150, bottom: 40, left: 30, right: 170 } : { top: 120, bottom: 80, left: 300, right: 600 }, maxZoom: 15.8, duration: 800 });
   openWindow(`cam:${best.c.camera_id}`);
 }
 
@@ -701,10 +702,16 @@ function renderCompare() {
       makeMovable(el, `win:${key}`); placeSaved(el, `win:${key}`);
     }
     el.querySelector('.cmp-body').innerHTML = key.startsWith('cam:') ? cameraDash(key.slice(4)) : dashboard(key);
+    const v = !key.startsWith('cam:') && S.byTrack[S.idx].get(key);
+    el.dataset.name = key.startsWith('cam:') ? key.slice(4) : v ? nameOf(v) : key;  // shown on the phone's side tabs
   }
   document.body.classList.toggle('comparing', S.compare.length > 0);
 }
 $('compare').addEventListener('click', (e) => {
+  if (document.body.classList.contains('win-min') && !e.target.closest('[data-cmpclose]')) {  // tap a tab: windows back to full size
+    document.body.classList.remove('win-min');
+    return;
+  }
   const x = e.target.closest('[data-cmpclose]');
   if (x) return closeWindow(x.dataset.cmpclose);
   const imp = e.target.closest('[data-impact]');
@@ -834,6 +841,7 @@ async function openScenario(sc, overview = true) {
   S.markers.forEach((m) => m.marker.remove());  // track ids repeat across scenarios with other vehicle types
   S.markers.clear();
   S.compare = []; S.notified = null; S.top = null; S.camFor = {};
+  document.body.classList.remove('win-min');
   renderCompare();
   highlightCamera();
   closeImpact();

@@ -441,3 +441,19 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
   #brand .status { font-size: 12.5px; }
 }
 @media (max-width: 760px) { #notify { top: 78px; } #impact { top: 128px; } }
+
+/* phones after Check camera: windows become small tabs on the right edge */
+@media (max-width: 760px) {
+  body.win-min #compare { left: auto; right: 6px; top: 130px; bottom: auto; width: 150px; flex-direction: column; flex-wrap: nowrap; overflow: visible; padding: 0; gap: 6px; }
+  body.win-min .cmp.win-veh, body.win-min .cmp.win-cam { width: 150px; max-height: 40px; padding: 0; overflow: hidden; position: relative !important; inset: auto !important; }
+  body.win-min .cmp .d-head { top: 10px; left: 10px; right: 36px; }
+  body.win-min .cmp .d-name { font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.win-min .cmp .cmp-x { top: 6px; right: 6px; width: 26px; height: 26px; font-size: 16px; }
+  body.win-min .cmp .grip { display: none; }
+  body.win-min .cmp.win-cam { box-shadow: 0 0 0 2px var(--pink), var(--shadow); }
+}
+
+@media (max-width: 760px) {
+  body.win-min .cmp-body { display: none; }
+  body.win-min .cmp::before { content: attr(data-name); display: block; padding: 10px 12px; font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+}
