@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "airport": "LIRF",
+  "t_start": 1792071600.0,
+  "t_end": 1792071780.0,
+  "step_s": 5,
+  "n_frames": 37,
+  "frames_file": "frames.jsonl",
+  "events": [
+    {
+      "event_id": "ev_sector",
+      "kind": "sector_interference",
+      "title": "Sector interference",
+      "t_start": 1792071620.0,
+      "t_end": 1792071740.0,
+      "track_ids": [
+        "synthetic:veh_280:0",
+        "synthetic:veh_281:0",
+        "synthetic:veh_282:0"
+      ]
+    }
+  ]
+}

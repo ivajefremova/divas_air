@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Divas Security</title>
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<link rel="stylesheet" href="style.css?v=b0f813ca6a">
+</head>
+<body class="view-photo">
+<div id="map"></div>
+
+<!-- dashed line from the notification to the vehicle -->
+<svg id="link" aria-hidden="true"><path id="link-path"/><circle id="link-dot" r="7"/></svg>
+
+<!-- top left: name, status, clock -->
+<header id="brand" class="card">
+  <!-- app/web/logo.png replaces the dots once it exists -->
+  <img id="brand-logo" src="logo.png" alt="" hidden onload="this.hidden=false; this.nextElementSibling.hidden=true">
+  <div class="logo" aria-hidden="true"><span></span><span></span></div>
+  <div>
+    <div class="brand-name">Divas Security</div>
+    <div id="status" class="status">Loading…</div>
+  </div>
+  <div id="clock" class="clock"></div>
+</header>
+
+<!-- top centre: the most important event -->
+<button id="notify" hidden>
+  <span class="n-icon" aria-hidden="true">!</span>
+  <span class="n-text"><b id="notify-title"></b><span id="notify-sub"></span></span>
+</button>
+
+<!-- top right: demos -->
+<div id="demo">
+  <button id="demo-btn" class="card pill-btn" aria-expanded="false">Demo</button>
+  <div id="demo-menu" class="card menu" hidden>
+    <div id="demo-events"></div>
+    <div class="menu-sep"></div>
+    <div class="menu-row">
+      <button id="demo-play" class="menu-chip"></button>
+      <button id="demo-restart" class="menu-chip">Restart</button>
+    </div>
+    <div id="demo-source" class="menu-note"></div>
+  </div>
+</div>
+
+<!-- bottom left: map view + small colour key -->
+<div id="views">
+  <button id="views-btn" class="card view-current" aria-expanded="false">
+    <span class="thumb" id="views-thumb"></span>
+    <span class="view-label" id="views-label">Photo</span>
+  </button>
+  <div id="views-menu" class="card" hidden>
+    <div class="view-grid" id="view-grid"></div>
+    <div class="menu-sep"></div>
+    <label class="toggle"><input type="checkbox" id="show-aircraft" checked><span></span>Aircraft</label>
+    <label class="toggle"><input type="checkbox" id="show-vehicles" checked><span></span>Vehicles</label>
+  </div>
+  <div id="key" class="card"></div>
+</div>
+
+<!-- right: alerts and the vehicle dashboard -->
+<button id="panel-tab" class="card" aria-controls="panel" aria-expanded="false">
+  <span class="tab-icon" aria-hidden="true">‹</span>
+  <span id="tab-count" class="tab-count" hidden>0</span>
+</button>
+<aside id="panel" class="card" aria-hidden="true">
+  <div class="grip" aria-hidden="true"></div>
+  <div id="panel-body"></div>
+</aside>
+
+<!-- impact of an area event -->
+<!-- impacted vehicles opened side by side, to compare -->
+<div id="compare" hidden></div>
+
+<section id="impact" hidden>
+  <div class="grip" aria-hidden="true"></div>
+  <button id="impact-close" class="close-btn" aria-label="Close">×</button>
+  <div id="impact-body"></div>
+</section>
+
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="config.js?v=b0f813ca6a"></script>
+<script src="app.js?v=b0f813ca6a"></script>
+</body>
+</html>

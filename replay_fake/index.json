@@ -1,0 +1,153 @@
+{
+  "simulated": true,
+  "scenarios": [
+    {
+      "id": "normal_ops",
+      "dir": "normal_ops",
+      "title": "Normal operations",
+      "category": "Baseline",
+      "story": "A normal afternoon: aircraft taxiing, service vehicles at the stands. Everything trusted.",
+      "t_start": 1792069200.0,
+      "onset_t": 1792069381.0,
+      "focus": [],
+      "night": false,
+      "fog": false,
+      "jam": false
+    },
+    {
+      "id": "phantom_incursion",
+      "dir": "phantom_incursion",
+      "title": "Phantom runway incursion",
+      "category": "Data fault",
+      "story": "A tractor's GPS suddenly puts it on Runway 16R/34L. A runway camera sees an empty runway: the position is wrong, not the tractor.",
+      "t_start": 1792069800.0,
+      "onset_t": 1792069820.0,
+      "focus": [
+        "synthetic:veh_319:0"
+      ],
+      "night": false,
+      "fog": false,
+      "jam": false
+    },
+    {
+      "id": "real_incursion",
+      "dir": "real_incursion",
+      "title": "Real runway incursion",
+      "category": "Real event",
+      "story": "A fuel truck really drives onto Runway 16L/34R. The data is sound, so the alert says act now, and a runway camera confirms it.",
+      "t_start": 1792070700.0,
+      "onset_t": 1792070720.0,
+      "focus": [
+        "synthetic:veh_290:0"
+      ],
+      "night": false,
+      "fog": false,
+      "jam": false
+    },
+    {
+      "id": "sector_interference",
+      "dir": "sector_interference",
+      "title": "Apron interference",
+      "category": "Possible interference",
+      "story": "Five vehicles on the apron near Boarding Area E61-A83 lose GNSS at the same moment. One area alert instead of five, and a mast camera shows the vehicles are where they should be.",
+      "t_start": 1792071600.0,
+      "onset_t": 1792071620.0,
+      "focus": [
+        "synthetic:veh_280:0",
+        "synthetic:veh_281:0",
+        "synthetic:veh_282:0",
+        "synthetic:veh_283:0",
+        "synthetic:veh_284:0"
+      ],
+      "night": false,
+      "fog": false,
+      "jam": false
+    },
+    {
+      "id": "jammer_car",
+      "dir": "jammer_car",
+      "title": "Jammer in a passing car",
+      "category": "Possible interference",
+      "story": "A car with a cheap GPS jammer drives past the aprons. The degraded area moves with it, vehicles are warned before they enter, and security gets a place to look.",
+      "t_start": 1792072500.0,
+      "onset_t": 1792072520.0,
+      "focus": [],
+      "night": false,
+      "fog": false,
+      "jam": true
+    },
+    {
+      "id": "approach_spoofing",
+      "dir": "approach_spoofing",
+      "title": "Approach spoofing",
+      "category": "Possible spoofing",
+      "story": "Three arriving aircraft suddenly report positions on the same small circle far from the runway: the signature of GNSS spoofing seen over the Baltic and Eastern Mediterranean.",
+      "t_start": 1792073400.0,
+      "onset_t": 1792073420.0,
+      "focus": [
+        "fco:76c71e:0",
+        "fco:79ff9e:0",
+        "fco:3addd7:0"
+      ],
+      "night": false,
+      "fog": false,
+      "jam": false
+    },
+    {
+      "id": "multipath_terminal",
+      "dir": "multipath_terminal",
+      "title": "Multipath near the terminal",
+      "category": "Degraded data",
+      "story": "Next to Terminal 3 the satellite signals bounce off the facade. Vehicles there get less accurate positions: the system lowers trust without raising a false alarm.",
+      "t_start": 1792074300.0,
+      "onset_t": 1792074320.0,
+      "focus": [],
+      "night": false,
+      "fog": false,
+      "jam": false
+    },
+    {
+      "id": "frozen_receiver",
+      "dir": "frozen_receiver",
+      "title": "Frozen receiver at night",
+      "category": "Technical error",
+      "story": "At night a bus's receiver freezes: same position, but still reporting 30 km/h. The nearest gate camera has no infrared, so the system says plainly that it can't confirm.",
+      "t_start": 1792102200.0,
+      "onset_t": 1792102220.0,
+      "focus": [
+        "synthetic:veh_319:0"
+      ],
+      "night": true,
+      "fog": false,
+      "jam": false
+    },
+    {
+      "id": "space_weather",
+      "dir": "space_weather",
+      "title": "Space weather in fog",
+      "category": "GNSS anomaly",
+      "story": "A burst of solar activity lowers GNSS accuracy everywhere at once, with no single source. In the morning fog the cameras can't help either.",
+      "t_start": 1792054800.0,
+      "onset_t": 1792054820.0,
+      "focus": [],
+      "night": false,
+      "fog": true,
+      "jam": false
+    },
+    {
+      "id": "speeding_apron",
+      "dir": "speeding_apron",
+      "title": "Speeding on the apron",
+      "category": "Real event",
+      "story": "A catering truck crosses the apron at 55 km/h. The position is trustworthy and the behaviour is wrong: a real event, confirmed by an apron camera.",
+      "t_start": 1792075200.0,
+      "onset_t": 1792075220.0,
+      "focus": [
+        "synthetic:veh_319:0"
+      ],
+      "night": false,
+      "fog": false,
+      "jam": false
+    }
+  ]
+}
