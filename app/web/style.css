@@ -485,3 +485,36 @@ body.view-schematic #impact, body.view-schematic #compare { display: none !impor
   #key { display: none; }
   body.comparing #views, body.comparing #panel-tab { display: none; }
 }
+
+/* --- right column: windows and their tabs; left: the impacted-vehicles card ------------------------------------- */
+@media (min-width: 761px) {
+  body.comparing { --right-w: calc(var(--panel-w) + 2 * var(--gap)); }
+  #compare, body.impact-open:not(.panel-open) #compare { left: auto; right: var(--gap); top: 96px; bottom: var(--gap); width: var(--panel-w);
+    max-height: none; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch; gap: 8px; }
+  .win-open { flex-direction: column; align-items: stretch; overflow-x: hidden; overflow-y: auto; max-height: 100%; }
+  .win-tabs { justify-content: flex-end; }
+  .cmp.win-veh, .cmp.win-cam { width: auto; }
+  #impact { left: var(--gap); right: auto; top: 96px; max-height: calc(100% - 96px - 190px); }
+  body.panel-open #compare { z-index: 5; }
+}
+/* the camera inside a vehicle window */
+.veh-cam { display: grid; grid-template-columns: 1fr 1.6fr; gap: 12px; align-items: stretch; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--navy-line); }
+.veh-cam .footage { height: 150px; margin: 0; }
+.vc-name { font-size: 17px; font-weight: 800; }
+.veh-cam .cam-label { margin: 0 0 6px; font-size: 12.5px; }
+.vc-state { display: inline-block; font-size: 12.5px; font-weight: 800; padding: 3px 8px; border-radius: 4px; }
+.vc-state.ok { background: #1f7a52; } .vc-state.no { background: #6b7a99; }
+@media (max-width: 760px) {
+  .veh-cam { grid-template-columns: 1fr 1.2fr; margin-top: 6px; padding-top: 6px; gap: 8px; }
+  .veh-cam .footage { height: 84px; }
+  .vc-name { font-size: 14px; }
+  .cmp.win-veh { max-height: 46vh; }
+}
+@media (min-width: 761px) { #panel-tab { top: var(--gap); bottom: auto; width: 56px; height: 46px; flex-direction: row; } }
+@media (max-width: 760px) {
+  .veh-cam .cam-label { display: none; }
+  .veh-cam .footage { height: 64px; }
+  .veh-cam .empty-feed svg { display: none; }
+  .veh-cam .empty-feed b { font-size: 13px; } .veh-cam .empty-feed span { font-size: 11px; text-align: center; }
+  .vc-state { font-size: 11.5px; }
+}

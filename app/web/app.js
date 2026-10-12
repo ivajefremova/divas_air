@@ -55,7 +55,7 @@ const S = {
   scenarios: [], cur: null, manifest: null, frames: [], byTrack: [], disp: [], source: '',
   t: 0, idx: -1, playing: true, view: 'photo', show: { aircraft: true, vehicles: true },
   impact: null, panelOpen: false, items: [], top: null, notified: null,
-  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false, compare: [], active: null, pinned: new Set(), camFor: {},
+  markers: new Map(), pos: new Map(), fcLabels: [], popup: null, cameras: [], camMarkers: [], hasVideo: false, compare: [], active: null, pinned: new Set(), camFor: {}, camHL: null,
 };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -214,7 +214,7 @@ function applyView(view) {
   for (const id of BASE_LAYERS) map.setLayoutProperty(id, 'visibility', VIEWS[view].on.includes(id) ? 'visible' : 'none');
   map.setPaintProperty('rwy-line', 'line-width', view === 'photo' ? 1.8 : 2.5);
   S.popup?.remove();
-  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); if (S.active?.startsWith('cam:')) S.active = null; renderCompare(); }
+  if (view !== 'cameras') { S.compare = S.compare.filter((k) => !k.startsWith('cam:')); if (S.active?.startsWith('cam:')) S.active = null; S.camHL = null; renderCompare(); }
   highlightCamera();
   renderViews();
   if (S.frames.length) onFrame();
@@ -447,13 +447,21 @@ function drawLink() {
 $('notify').addEventListener('click', () => {
   const top = S.top;
   if (!top) return;
-  // go straight to the issue: for jamming, to the first vehicle in the priority queue
-  const id = top.kind === 'track' ? top.id : priorityOrder(top.members)[0]?.track_id;
-  const t = id && S.pos.get(id);
-  if (t) map.jumpTo({ center: [t.lon, t.lat], zoom: Math.max(map.getZoom(), 16.5),
-    padding: { right: isPhone() ? 0 : (top.kind === 'area' ? 560 : 0), top: 90, left: 0, bottom: isPhone() ? innerHeight * 0.38 : 380 } });
-  if (top.kind === 'area' && !isPhone()) openImpact(top.id);  // phones: one window at a time, the list opens via Check impact
-  if (id) openWindow(id);
+  // single vehicle: go to it and open its window (right side); jamming: show the whole area and the sorted list
+  const pad = isPhone() ? { top: 140, bottom: innerHeight * 0.4, left: 20, right: 20 } : { top: 110, bottom: 60, left: 300, right: 580 };
+  if (top.kind === 'track') {
+    const t = S.pos.get(top.id);
+    if (t) map.jumpTo({ center: [t.lon, t.lat], zoom: Math.max(map.getZoom(), 16.5), padding: pad });
+    openWindow(top.id);
+  } else {
+    const pts = top.members.map((v) => S.pos.get(v.track_id)).filter(Boolean);
+    if (pts.length) {
+      const b = new maplibregl.LngLatBounds([pts[0].lon, pts[0].lat], [pts[0].lon, pts[0].lat]);
+      pts.forEach((p) => b.extend([p.lon, p.lat]));
+      map.fitBounds(b, { padding: pad, maxZoom: 16.5, duration: 0 });
+    }
+    openImpact(top.id);
+  }
 });
 
 // ---- panel: alert list or the vehicle dashboard -------------------------------------------------
@@ -511,9 +519,25 @@ function dashboard(id) {
         <div class="label">Integrity, last 5 min</div>${sparkline(id)}
       </div>
     </div>
+    ${isAlert(v) ? vehicleCamera(id) : ''}
     ${isAlert(v) ? `<div class="dash-end"><div class="todo-wrap"><div class="label">What to do</div><div class="todo">${esc(v.action.text)}</div></div>
-      <div class="btns"><button class="impact-btn cam-btn" data-checkcam="${esc(v.track_id)}">Check camera</button>
+      <div class="btns"><button class="impact-btn cam-btn" data-checkcam="${esc(v.track_id)}">View surroundings</button>
       <button class="impact-btn" data-impact="${esc(v.area_alert_id || '')}" data-from="${esc(v.track_id)}">Check impact</button></div></div>` : ''}`;
+}
+
+// the best camera for this vehicle, shown inside its window
+function vehicleCamera(id) {
+  const best = bestCamera(id);
+  const footage = S.hasVideo
+    ? '<video class="footage" src="media/camera.mp4" autoplay muted loop playsinline></video>'
+    : `<div class="footage empty-feed">${CAM_SVG}<b>Live footage</b><span>Available once camera access is granted</span></div>`;
+  if (!best) return `<div class="veh-cam"><div><div class="label">Camera</div><div class="none">No camera available</div></div>${footage}</div>`;
+  return `<div class="veh-cam"><div>
+      <div class="label">Camera</div>
+      <div class="vc-name">${esc(best.c.camera_id)}</div>
+      <div class="cam-label">${esc(best.c.label)}</div>
+      <div class="vc-state ${best.sees ? 'ok' : 'no'}">${best.sees ? `Sees it · ${Math.round(best.d)} m away` : `Not in view · nearest, ${Math.round(best.d)} m`}</div>
+    </div>${footage}</div>`;
 }
 
 // ---- cameras (simulated) ----------------------------------------------------------------------
@@ -545,7 +569,7 @@ function addCameras(points, cover) {
 
 function highlightCamera() {
   if (!map.getLayer('cam-cover')) return;
-  const ids = ['', ...S.compare.filter((k) => k.startsWith('cam:')).map((k) => k.slice(4))];
+  const ids = ['', S.camHL || '', ...S.compare.filter((k) => k.startsWith('cam:')).map((k) => k.slice(4))];
   const filter = ['in', ['get', 'camera_id'], ['literal', ids]];
   map.setFilter('cam-cover', filter);
   map.setFilter('cam-edge', filter);
@@ -569,11 +593,12 @@ function checkCamera(trackId) {
   if (!best) return;
   S.camFor[best.c.camera_id] = { track: trackId, sees: best.sees, d: Math.round(best.d) };
   applyView('cameras');
+  S.camHL = best.c.camera_id;
+  highlightCamera();
   const p = S.pos.get(trackId), c = best.c.coords;
   const b = new maplibregl.LngLatBounds([p.lon, p.lat], [p.lon, p.lat]).extend(c);
-  map.fitBounds(b, { padding: isPhone() ? { top: 150, bottom: 40, left: 30, right: 170 } : { top: 120, bottom: 80, left: 300, right: 600 }, maxZoom: 15.8, duration: 800 });
-  openWindow(`cam:${best.c.camera_id}`);
-  if (isPhone()) { S.active = null; refreshWindows(); }  // phones: just the tabs, so the map shows the camera; tap CAM to open it
+  map.fitBounds(b, { padding: isPhone() ? { top: 150, bottom: innerHeight * 0.4, left: 30, right: 30 } : { top: 120, bottom: 80, left: 120, right: 600 }, maxZoom: 15.5, duration: 800 });
+  if (isPhone()) { S.active = null; refreshWindows(); }  // phones: just the tabs, so the area is visible
 }
 
 // camera window: horizontal, three columns (details | what it sees | footage), no scrolling
@@ -664,7 +689,6 @@ function renderImpact() {
     shownRows.map((v, k) => `<button class="imp${k < 3 && isAlert(v) ? ' top' : ''}${isAlert(v) ? '' : ' done'}" data-track="${esc(v.track_id)}">
       <span class="rank">${k + 1}</span><span class="who">${esc(nameOf(v))}<small>${esc(reason(v))}</small></span><b>${level(v)}</b></button>`).join('') + '</div>' +
     (more > 0 ? `<button class="imp-more" data-more>${S.impact.all ? 'Show top 5' : `⋯ ${more} more`}</button>` : '');
-  document.body.style.setProperty('--imp-right', `${box.offsetWidth + 32}px`);  // windows use the space up to the card
 }
 $('impact-close').addEventListener('click', closeImpact);
 $('impact-body').addEventListener('click', (e) => {
@@ -853,7 +877,7 @@ async function openScenario(sc, overview = true) {
   S.cur = sc;
   S.markers.forEach((m) => m.marker.remove());  // track ids repeat across scenarios with other vehicle types
   S.markers.clear();
-  S.compare = []; S.active = null; S.pinned.clear(); S.notified = null; S.top = null; S.camFor = {};
+  S.compare = []; S.active = null; S.pinned.clear(); S.notified = null; S.top = null; S.camFor = {}; S.camHL = null;
   renderCompare();
   highlightCamera();
   closeImpact();
